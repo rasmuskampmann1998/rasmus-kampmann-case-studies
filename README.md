@@ -17,7 +17,7 @@ Cases 10 and 11 are anonymised real engagements (a European seed producer). Case
 
 ## Folder convention
 
-Each case study contains:
+Each case study contains some or all of:
 
 - `README.md` non-technical narrative plus key findings
 - `data/` anonymised or synthetic CSV samples
@@ -26,6 +26,8 @@ Each case study contains:
 - `powerbi/` dashboard spec plus DAX measures
 - `slides/` McKinsey one-rule executive deck spec
 - `source-scripts/` architecture notes pointing to production code
+
+Case 07 (Tomato Intel) only includes `python/`, `powerbi/`, `slides/`, and `source-scripts/` because the production scrapers can't be reproduced publicly. Cases 03, 10, 11 have the full set.
 
 ## Reproducing locally
 
