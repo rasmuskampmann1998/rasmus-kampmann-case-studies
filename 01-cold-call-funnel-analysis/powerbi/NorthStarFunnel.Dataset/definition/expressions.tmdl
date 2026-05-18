@@ -1,0 +1,11 @@
+/// Absolute path to the case-study `data/` folder that holds the 9 CSVs.
+/// Power BI has no portable relative path for file sources, so this is a
+/// required parameter. The default is a PLACEHOLDER — Power BI will prompt
+/// for it on first open. Set it to your local `.../full-funnel-analysis/data`
+/// then Refresh. See powerbi/README.md step 1.
+expression DataFolder = "C:\Users\rasmu\code\rasmus-skills\writing-case-studies\examples\full-funnel-analysis\data" meta [IsParameterQuery=true, Type="Text", IsParameterQueryRequired=true]
+	lineageTag: 7a1f0c00-0000-4000-8000-000000000001
+	queryGroup: Dimensions
+
+	annotation PBI_ResultType = Text
+

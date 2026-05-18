@@ -1,0 +1,8 @@
+EVALUATE
+ROW(
+    "mtg_to_won", [Funnel · Win Rate Meeting->Won],
+    "cancel_share", [Funnel · Cancellation Share of Losses],
+    "sweet_6_20", CALCULATE([Funnel · Win Rate Meeting->Won], dim_company[employee_band]="6-20"),
+    "cycle_days", [Funnel · Avg Days Meeting->Won],
+    "won_mrr", [Revenue · MRR Won USD]
+)

@@ -1,0 +1,14 @@
+// Welcome to DAX query view! Learn more about DAX queries at https://aka.ms/dax-queries.
+// Right-click on tables, columns, or measures in the data pane to access quick queries, or ask Copilot for help writing DAX.
+
+// Select "Run" to try this sample DAX query.
+EVALUATE
+    TOPN(100, 'dim_date')
+EVALUATE
+ROW(
+    "blended_win", [Channel · Win Rate],
+    "cold_win", CALCULATE([Channel · Win Rate], dim_channel[channel_name]="Cold Calling"),
+    "linkedin_win", CALCULATE([Channel · Win Rate], dim_channel[channel_name]="LinkedIn Outbound"),
+    "cold_mrr_hr", CALCULATE([Channel · MRR per Dialer Hour], dim_channel[channel_name]="Cold Calling"),
+    "won_mrr", [Revenue · Won MRR USD]
+)

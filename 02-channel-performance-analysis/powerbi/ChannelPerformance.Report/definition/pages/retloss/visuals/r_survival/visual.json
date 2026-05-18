@@ -1,0 +1,76 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.7.0/schema.json",
+  "name": "r_survival",
+  "position": {
+    "x": 16,
+    "y": 16,
+    "z": 0,
+    "height": 300,
+    "width": 1248,
+    "tabOrder": 0
+  },
+  "visual": {
+    "visualType": "lineChart",
+    "query": {
+      "queryState": {
+        "Category": {
+          "projections": [
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "fact_deals"
+                    }
+                  },
+                  "Property": "retained_months"
+                }
+              },
+              "queryRef": "fact_deals.retained_months",
+              "nativeQueryRef": "retained_months",
+              "active": true
+            }
+          ]
+        },
+        "Y": {
+          "projections": [
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "_Measures"
+                    }
+                  },
+                  "Property": "Channel · Won & Retained"
+                }
+              },
+              "queryRef": "_Measures.Channel · Won & Retained",
+              "nativeQueryRef": "Channel · Won & Retained"
+            }
+          ]
+        },
+        "Legend": {
+          "projections": [
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "dim_channel"
+                    }
+                  },
+                  "Property": "channel_group"
+                }
+              },
+              "queryRef": "dim_channel.channel_group",
+              "nativeQueryRef": "channel_group",
+              "active": true
+            }
+          ]
+        }
+      }
+    },
+    "drillFilterOtherVisuals": true
+  }
+}

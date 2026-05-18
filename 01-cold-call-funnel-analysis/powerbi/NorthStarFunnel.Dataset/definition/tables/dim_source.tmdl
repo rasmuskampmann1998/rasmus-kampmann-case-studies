@@ -1,0 +1,35 @@
+table dim_source
+	lineageTag: 46fc4085-e8c4-40fa-bdb2-e3b73a6a6227
+
+	column source_key
+		dataType: string
+		lineageTag: 142e5fc1-a660-41a0-9809-103d51e60254
+		summarizeBy: none
+		sourceColumn: source_key
+
+	column source_name
+		dataType: string
+		lineageTag: 679f10c2-2f24-4a83-b340-504909eb4bad
+		summarizeBy: none
+		sourceColumn: source_name
+
+	column channel
+		dataType: string
+		lineageTag: a672fa1e-f212-4ee9-ae13-b3e183073361
+		summarizeBy: none
+		sourceColumn: channel
+
+	partition dim_source = m
+		mode: import
+		source =
+				let
+					Src = Csv.Document(File.Contents(DataFolder & "\dim_source.csv"), [Delimiter=",", Encoding=65001, QuoteStyle=QuoteStyle.Csv]),
+					Prom = Table.PromoteHeaders(Src, [PromoteAllScalars=true]),
+					Typed = Table.TransformColumnTypes(Prom, {{"source_key", type text}, {"source_name", type text}, {"channel", type text}})
+				in
+					Typed
+
+	annotation PBI_NavigationStepName = Navigation
+
+	annotation PBI_ResultType = Table
+

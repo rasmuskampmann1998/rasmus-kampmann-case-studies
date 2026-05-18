@@ -1,0 +1,65 @@
+table dim_company
+	lineageTag: 15744932-d145-4f98-9716-79aa0861318d
+
+	column company_key
+		dataType: string
+		lineageTag: b9c2033a-3a40-4e0c-babb-cdd0ea32d9d6
+		summarizeBy: none
+		sourceColumn: company_key
+
+	column company_name
+		dataType: string
+		lineageTag: 0f4a85ed-7b9e-4226-9b6f-c2f5b523a195
+		summarizeBy: none
+		sourceColumn: company_name
+
+	column industry
+		dataType: string
+		lineageTag: b26af361-96cc-4a52-a9ff-ab1ad25d71fa
+		summarizeBy: none
+		sourceColumn: industry
+
+	column employee_band
+		dataType: string
+		lineageTag: f37e4d97-17c7-42e6-8a15-8ec9c39bfed6
+		summarizeBy: none
+		sourceColumn: employee_band
+
+	column revenue_band_usd
+		dataType: string
+		lineageTag: 302f68b1-ad97-4b0f-baee-e204e638c090
+		summarizeBy: none
+		sourceColumn: revenue_band_usd
+
+	column region
+		dataType: string
+		lineageTag: f25c184b-b30a-4fa9-88e8-2a382e2c4c60
+		summarizeBy: none
+		sourceColumn: region
+
+	column company_form
+		dataType: string
+		lineageTag: 7f714f93-3a8b-431d-a463-1be7414c619d
+		summarizeBy: none
+		sourceColumn: company_form
+
+	column company_age_band
+		dataType: string
+		lineageTag: a9a3d1e8-93d6-47b7-856b-c957f1e9b3ab
+		summarizeBy: none
+		sourceColumn: company_age_band
+
+	partition dim_company = m
+		mode: import
+		source =
+				let
+					Src = Csv.Document(File.Contents(DataFolder & "\dim_company.csv"), [Delimiter=",", Encoding=65001, QuoteStyle=QuoteStyle.Csv]),
+					Prom = Table.PromoteHeaders(Src, [PromoteAllScalars=true]),
+					Typed = Table.TransformColumnTypes(Prom, {{"company_key", type text}, {"company_name", type text}, {"industry", type text}, {"employee_band", type text}, {"revenue_band_usd", type text}, {"region", type text}, {"company_form", type text}, {"company_age_band", type text}})
+				in
+					Typed
+
+	annotation PBI_NavigationStepName = Navigation
+
+	annotation PBI_ResultType = Table
+

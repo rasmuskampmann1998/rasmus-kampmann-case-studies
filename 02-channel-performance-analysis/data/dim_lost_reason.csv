@@ -1,0 +1,15 @@
+lost_reason_key,lost_reason,reason_category
+LR01,Meeting No-Show / Cancelled,No-response
+LR02,No Response / Ghost,No-response
+LR03,Stale Lead,No-response
+LR04,Price / Budget,Price
+LR05,Timing - Not Ready,Timing
+LR06,Uses Competitor,Competitor
+LR07,Uses Competing Software,Competitor
+LR08,Has Internal Bookkeeper,Fit
+LR09,Not Qualified,Fit
+LR10,Lack of Trust,Fit
+LR11,Booked Under Wrong Premise,Fit
+LR12,Hiring Process Outcome,Other
+LR13,Other,Other
+LR14,Unknown,Unknown

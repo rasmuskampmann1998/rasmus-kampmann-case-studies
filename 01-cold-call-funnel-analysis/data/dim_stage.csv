@@ -1,0 +1,12 @@
+stage_key,stage_name,stage_order,funnel_step
+S01,01-Lead,1,Attempt
+S02,02-Pending Meeting,2,Connect
+S03,03-Meeting Held,3,Meeting
+S04,03b-Meeting Cancelled,3,Meeting
+S05,04-Follow-up Pending,4,Meeting
+S06,04b-Follow-up Cancelled,4,Meeting
+S07,05-Offer Validation,5,Negotiation
+S08,06-Pending Final Accept,6,Negotiation
+S09,07-Pending Onboarding,7,Close
+S10,08-Won-Onboarded,8,Close
+S11,09-Partner,9,Close

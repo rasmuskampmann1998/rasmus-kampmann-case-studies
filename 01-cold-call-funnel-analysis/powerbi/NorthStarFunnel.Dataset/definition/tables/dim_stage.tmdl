@@ -1,0 +1,41 @@
+table dim_stage
+	lineageTag: ec77cfa9-aa3a-40af-ab59-b27845d5a3e1
+
+	column stage_key
+		dataType: string
+		lineageTag: 2cc40623-db6e-4354-a276-8f69b50424fe
+		summarizeBy: none
+		sourceColumn: stage_key
+
+	column stage_name
+		dataType: string
+		lineageTag: f3e062d2-17c1-4e0a-8f33-fbd7eee8f4eb
+		summarizeBy: none
+		sourceColumn: stage_name
+
+	column stage_order
+		dataType: int64
+		lineageTag: 912cb7c7-fdb1-49aa-a30d-17b253c4d3ee
+		summarizeBy: sum
+		sourceColumn: stage_order
+
+	column funnel_step
+		dataType: string
+		lineageTag: 5958e16f-3954-4c37-94b1-e2c886667c4f
+		summarizeBy: none
+		sourceColumn: funnel_step
+
+	partition dim_stage = m
+		mode: import
+		source =
+				let
+					Src = Csv.Document(File.Contents(DataFolder & "\dim_stage.csv"), [Delimiter=",", Encoding=65001, QuoteStyle=QuoteStyle.Csv]),
+					Prom = Table.PromoteHeaders(Src, [PromoteAllScalars=true]),
+					Typed = Table.TransformColumnTypes(Prom, {{"stage_key", type text}, {"stage_name", type text}, {"stage_order", Int64.Type}, {"funnel_step", type text}})
+				in
+					Typed
+
+	annotation PBI_NavigationStepName = Navigation
+
+	annotation PBI_ResultType = Table
+

@@ -1,0 +1,41 @@
+table dim_rep
+	lineageTag: 8d7d5676-b931-4324-a448-132ce901f0cd
+
+	column rep_key
+		dataType: string
+		lineageTag: f2408e49-8a60-4da1-8511-4f4105cf9dbc
+		summarizeBy: none
+		sourceColumn: rep_key
+
+	column rep_name
+		dataType: string
+		lineageTag: 32884e0d-6339-408e-8b5d-9fca7b269f25
+		summarizeBy: none
+		sourceColumn: rep_name
+
+	column rep_team
+		dataType: string
+		lineageTag: da0446d9-123a-4510-ae83-6a8efb4a39a1
+		summarizeBy: none
+		sourceColumn: rep_team
+
+	column tenure_band
+		dataType: string
+		lineageTag: 491cab39-f620-43e6-9356-36ecd0f29d22
+		summarizeBy: none
+		sourceColumn: tenure_band
+
+	partition dim_rep = m
+		mode: import
+		source =
+				let
+					Src = Csv.Document(File.Contents(DataFolder & "\dim_rep.csv"), [Delimiter=",", Encoding=65001, QuoteStyle=QuoteStyle.Csv]),
+					Prom = Table.PromoteHeaders(Src, [PromoteAllScalars=true]),
+					Typed = Table.TransformColumnTypes(Prom, {{"rep_key", type text}, {"rep_name", type text}, {"rep_team", type text}, {"tenure_band", type text}})
+				in
+					Typed
+
+	annotation PBI_NavigationStepName = Navigation
+
+	annotation PBI_ResultType = Table
+

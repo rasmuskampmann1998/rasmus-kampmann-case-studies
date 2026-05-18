@@ -1,0 +1,47 @@
+table dim_campaign
+	lineageTag: 92416dbe-c653-4656-8b3f-e80a293083ed
+
+	column campaign_key
+		dataType: string
+		lineageTag: c93e98d2-987f-4963-9689-8f192c53ab6d
+		summarizeBy: none
+		sourceColumn: campaign_key
+
+	column campaign_name
+		dataType: string
+		lineageTag: 5c24ed3c-64f9-4a13-8b97-6bb34c37f0f5
+		summarizeBy: none
+		sourceColumn: campaign_name
+
+	column channel_key
+		dataType: string
+		lineageTag: 42eedf56-ff23-41cc-8a5e-5a9b13346f88
+		summarizeBy: none
+		sourceColumn: channel_key
+
+	column segment
+		dataType: string
+		lineageTag: e5e8ae69-5fdf-45f5-a444-349375705287
+		summarizeBy: none
+		sourceColumn: segment
+
+	column launch_date
+		dataType: string
+		lineageTag: 374b2b63-75de-438a-991f-89eb28c3b868
+		summarizeBy: none
+		sourceColumn: launch_date
+
+	partition dim_campaign = m
+		mode: import
+		source =
+				let
+					Src = Csv.Document(File.Contents(DataFolder & "\dim_campaign.csv"), [Delimiter=",", Encoding=65001, QuoteStyle=QuoteStyle.Csv]),
+					Prom = Table.PromoteHeaders(Src, [PromoteAllScalars=true]),
+					Typed = Table.TransformColumnTypes(Prom, {{"campaign_key", type text}, {"campaign_name", type text}, {"channel_key", type text}, {"segment", type text}, {"launch_date", type text}})
+				in
+					Typed
+
+	annotation PBI_NavigationStepName = Navigation
+
+	annotation PBI_ResultType = Table
+

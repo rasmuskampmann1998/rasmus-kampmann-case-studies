@@ -1,0 +1,38 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.7.0/schema.json",
+  "name": "ec_t2w",
+  "position": {
+    "x": 1076,
+    "y": 594,
+    "z": 5,
+    "height": 110,
+    "width": 188,
+    "tabOrder": 5
+  },
+  "visual": {
+    "visualType": "card",
+    "query": {
+      "queryState": {
+        "Values": {
+          "projections": [
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "_Measures"
+                    }
+                  },
+                  "Property": "Channel · Avg Days to Won"
+                }
+              },
+              "queryRef": "_Measures.Channel · Avg Days to Won",
+              "nativeQueryRef": "Channel · Avg Days to Won"
+            }
+          ]
+        }
+      }
+    },
+    "drillFilterOtherVisuals": true
+  }
+}

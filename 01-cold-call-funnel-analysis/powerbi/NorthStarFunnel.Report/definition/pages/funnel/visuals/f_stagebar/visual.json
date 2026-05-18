@@ -1,0 +1,57 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.7.0/schema.json",
+  "name": "f_stagebar",
+  "position": {
+    "x": 16,
+    "y": 140,
+    "z": 5,
+    "height": 560,
+    "width": 620,
+    "tabOrder": 5
+  },
+  "visual": {
+    "visualType": "barChart",
+    "query": {
+      "queryState": {
+        "Category": {
+          "projections": [
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "dim_stage"
+                    }
+                  },
+                  "Property": "stage_name"
+                }
+              },
+              "queryRef": "dim_stage.stage_name",
+              "nativeQueryRef": "stage_name",
+              "active": true
+            }
+          ]
+        },
+        "Y": {
+          "projections": [
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "_Measures"
+                    }
+                  },
+                  "Property": "Funnel · Won Deals"
+                }
+              },
+              "queryRef": "_Measures.Funnel · Won Deals",
+              "nativeQueryRef": "Funnel · Won Deals"
+            }
+          ]
+        }
+      }
+    },
+    "drillFilterOtherVisuals": true
+  }
+}

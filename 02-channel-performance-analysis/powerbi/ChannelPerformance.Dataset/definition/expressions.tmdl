@@ -1,0 +1,11 @@
+/// Absolute path to the case-study `data/` folder that holds the 10 CSVs.
+/// Power BI has no portable relative path for file sources, so this is a
+/// required parameter. The default is a PLACEHOLDER — Power BI will prompt
+/// for it on first open. Set it to your local
+/// `.../channel-performance-analysis/data` then Refresh. See powerbi/README.md.
+expression DataFolder = "C:\Users\rasmu\code\rasmus-skills\writing-case-studies\examples\channel-performance-analysis\data" meta [IsParameterQuery=true, Type="Text", IsParameterQueryRequired=true]
+	lineageTag: 7b2e0d00-0000-4000-8000-000000000001
+	queryGroup: Dimensions
+
+	annotation PBI_ResultType = Text
+

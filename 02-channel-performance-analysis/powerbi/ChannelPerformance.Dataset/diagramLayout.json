@@ -1,0 +1,154 @@
+{
+  "version": "1.1.0",
+  "diagrams": [
+    {
+      "ordinal": 0,
+      "scrollPosition": {
+        "x": 861,
+        "y": 77.309791330884536
+      },
+      "nodes": [
+        {
+          "location": {
+            "x": 1448.7432206206531,
+            "y": 394.30979133088454
+          },
+          "nodeIndex": "_Measures",
+          "size": {
+            "height": 300,
+            "width": 234
+          },
+          "zIndex": 0
+        },
+        {
+          "location": {
+            "x": 1214.7432206206531,
+            "y": 537.37918927301871
+          },
+          "nodeIndex": "dim_campaign",
+          "size": {
+            "height": 200,
+            "width": 234
+          },
+          "zIndex": 0
+        },
+        {
+          "location": {
+            "x": 314.55627664072711,
+            "y": -50
+          },
+          "nodeIndex": "dim_channel",
+          "size": {
+            "height": 200,
+            "width": 234
+          },
+          "zIndex": 0
+        },
+        {
+          "location": {
+            "x": 632.49392952214612,
+            "y": 766.61958266176907
+          },
+          "nodeIndex": "dim_company",
+          "size": {
+            "height": 272,
+            "width": 234
+          },
+          "zIndex": 0
+        },
+        {
+          "location": {
+            "x": 635.04238246041882,
+            "y": 119.79417049739402
+          },
+          "nodeIndex": "dim_date",
+          "size": {
+            "height": 296,
+            "width": 234
+          },
+          "zIndex": 0
+        },
+        {
+          "location": {
+            "x": 1214.676879939419,
+            "y": 235.11762350763559
+          },
+          "nodeIndex": "dim_lost_reason",
+          "size": {
+            "height": 152,
+            "width": 234
+          },
+          "zIndex": 0
+        },
+        {
+          "location": {
+            "x": 54.670834273335004,
+            "y": 762.28021306455844
+          },
+          "nodeIndex": "dim_rep",
+          "size": {
+            "height": 176,
+            "width": 234
+          },
+          "zIndex": 0
+        },
+        {
+          "location": {
+            "x": 1107.737724229763,
+            "y": 801.31711334496777
+          },
+          "nodeIndex": "dim_stage",
+          "size": {
+            "height": 176,
+            "width": 234
+          },
+          "zIndex": 0
+        },
+        {
+          "location": {
+            "x": 921.851899770088,
+            "y": 442.337427857848
+          },
+          "nodeIndex": "fact_deals",
+          "size": {
+            "height": 300,
+            "width": 234
+          },
+          "zIndex": 0
+        },
+        {
+          "location": {
+            "x": 342.3278906015729,
+            "y": 403.45247879802793
+          },
+          "nodeIndex": "fact_meetings",
+          "size": {
+            "height": 300,
+            "width": 234
+          },
+          "zIndex": 0
+        },
+        {
+          "location": {
+            "x": 50,
+            "y": 208.80162510774107
+          },
+          "nodeIndex": "fact_touches",
+          "size": {
+            "height": 272,
+            "width": 234
+          },
+          "zIndex": 0
+        }
+      ],
+      "name": "All tables",
+      "zoomValue": 100,
+      "pinKeyFieldsToTop": false,
+      "showExtraHeaderInfo": false,
+      "hideKeyFieldsWhenCollapsed": false,
+      "tablesLocked": false
+    }
+  ],
+  "selectedDiagram": "All tables",
+  "defaultDiagram": "All tables"
+}

@@ -1,0 +1,80 @@
+relationship fact_deals_channel
+	fromColumn: fact_deals.channel_key
+	toColumn: dim_channel.channel_key
+
+relationship fact_deals_company
+	fromColumn: fact_deals.company_key
+	toColumn: dim_company.company_key
+
+relationship fact_deals_campaign
+	fromColumn: fact_deals.campaign_key
+	toColumn: dim_campaign.campaign_key
+
+relationship fact_deals_rep
+	fromColumn: fact_deals.rep_key
+	toColumn: dim_rep.rep_key
+
+relationship fact_deals_stage
+	fromColumn: fact_deals.stage_key
+	toColumn: dim_stage.stage_key
+
+relationship fact_deals_lostreason
+	fromColumn: fact_deals.lost_reason_key
+	toColumn: dim_lost_reason.lost_reason_key
+
+relationship fact_deals_created_date
+	fromColumn: fact_deals.created_date_key
+	toColumn: dim_date.date_key
+
+relationship fact_deals_won_date
+	isActive: false
+	fromColumn: fact_deals.won_date_key
+	toColumn: dim_date.date_key
+
+relationship fact_deals_lost_date
+	isActive: false
+	fromColumn: fact_deals.lost_date_key
+	toColumn: dim_date.date_key
+
+relationship fact_touches_channel
+	fromColumn: fact_touches.channel_key
+	toColumn: dim_channel.channel_key
+
+relationship fact_touches_company
+	isActive: false
+	fromColumn: fact_touches.company_key
+	toColumn: dim_company.company_key
+
+relationship fact_touches_rep
+	isActive: false
+	fromColumn: fact_touches.rep_key
+	toColumn: dim_rep.rep_key
+
+relationship fact_touches_date
+	fromColumn: fact_touches.touch_date_key
+	toColumn: dim_date.date_key
+
+relationship fact_meetings_deal
+	isActive: false
+	fromColumn: fact_meetings.deal_key
+	toColumn: fact_deals.deal_key
+
+relationship fact_meetings_channel
+	isActive: false
+	fromColumn: fact_meetings.channel_key
+	toColumn: dim_channel.channel_key
+
+relationship fact_meetings_company
+	isActive: false
+	fromColumn: fact_meetings.company_key
+	toColumn: dim_company.company_key
+
+relationship fact_meetings_rep
+	isActive: false
+	fromColumn: fact_meetings.rep_key
+	toColumn: dim_rep.rep_key
+
+relationship fact_meetings_date
+	fromColumn: fact_meetings.meeting_date_key
+	toColumn: dim_date.date_key
+

@@ -1,0 +1,113 @@
+table fact_deals
+	lineageTag: 22ec2e88-317f-4427-aba5-ba88c4fd33fa
+
+	column deal_key
+		dataType: string
+		lineageTag: 88ca3f12-0949-41df-a5cb-5be62c2b4285
+		summarizeBy: none
+		sourceColumn: deal_key
+
+	column company_key
+		dataType: string
+		lineageTag: f80bb1ad-b17c-451b-b8d2-4805bb1dc32d
+		summarizeBy: none
+		sourceColumn: company_key
+
+	column channel_key
+		dataType: string
+		lineageTag: 9de58400-6b8f-4d50-8f56-adbc45bf16b5
+		summarizeBy: none
+		sourceColumn: channel_key
+
+	column campaign_key
+		dataType: string
+		lineageTag: e668e095-132e-4b24-934c-3c925e36dc59
+		summarizeBy: none
+		sourceColumn: campaign_key
+
+	column rep_key
+		dataType: string
+		lineageTag: fbcc020f-db7c-41e4-b2ef-effa5243cbd6
+		summarizeBy: none
+		sourceColumn: rep_key
+
+	column stage_key
+		dataType: string
+		lineageTag: d98d3766-18b6-40fe-ab10-eeb195b3cb2e
+		summarizeBy: none
+		sourceColumn: stage_key
+
+	column lost_reason_key
+		dataType: string
+		lineageTag: 293ecfc7-0ce9-4361-9909-198dc5dc9458
+		summarizeBy: none
+		sourceColumn: lost_reason_key
+
+	column created_date_key
+		dataType: int64
+		lineageTag: 22401acb-9ea3-46f1-ad30-489ed2a6bc67
+		summarizeBy: none
+		sourceColumn: created_date_key
+
+	column won_date_key
+		dataType: int64
+		lineageTag: bdd231a5-d430-4007-9bc6-ba5edd02c15e
+		summarizeBy: none
+		sourceColumn: won_date_key
+
+	column lost_date_key
+		dataType: int64
+		lineageTag: 7bb68cbc-e4fc-4a75-ae33-644c3e898696
+		summarizeBy: none
+		sourceColumn: lost_date_key
+
+	column mrr_usd
+		dataType: double
+		lineageTag: ae5c482f-d733-44fc-8499-3ff45b8d2b16
+		summarizeBy: sum
+		sourceColumn: mrr_usd
+
+	column tcv_usd
+		dataType: double
+		lineageTag: 8cc10138-0209-4730-8866-1271a47de4a2
+		summarizeBy: sum
+		sourceColumn: tcv_usd
+
+	column dialer_hours_attributed
+		dataType: double
+		lineageTag: 4a510d82-4520-4a00-8782-0173f276060c
+		summarizeBy: sum
+		sourceColumn: dialer_hours_attributed
+
+	column deal_age_days
+		dataType: double
+		lineageTag: fb14b616-288c-48d8-89c1-09c642379789
+		summarizeBy: sum
+		sourceColumn: deal_age_days
+
+	column is_won
+		dataType: int64
+		lineageTag: 4031dd88-9266-4154-85fb-ef6fa95f9e40
+		summarizeBy: sum
+		sourceColumn: is_won
+
+	column is_lost
+		dataType: int64
+		lineageTag: b23b4dfd-460c-4e9d-8942-8bbc9d424a24
+		summarizeBy: sum
+		sourceColumn: is_lost
+
+	partition fact_deals = m
+		mode: import
+		source =
+				let
+					Src = Csv.Document(File.Contents(DataFolder & "\fact_deals.csv"), [Delimiter=",", Encoding=65001, QuoteStyle=QuoteStyle.Csv]),
+					Prom = Table.PromoteHeaders(Src, [PromoteAllScalars=true]),
+					Typed = Table.TransformColumnTypes(Prom, {{"deal_key", type text}, {"company_key", type text}, {"channel_key", type text}, {"campaign_key", type text}, {"rep_key", type text}, {"stage_key", type text}, {"lost_reason_key", type text}, {"created_date_key", Int64.Type}, {"won_date_key", Int64.Type}, {"lost_date_key", Int64.Type}, {"mrr_usd", type number}, {"tcv_usd", type number}, {"dialer_hours_attributed", type number}, {"deal_age_days", type number}, {"is_won", Int64.Type}, {"is_lost", Int64.Type}})
+				in
+					Typed
+
+	annotation PBI_NavigationStepName = Navigation
+
+	annotation PBI_ResultType = Table
+

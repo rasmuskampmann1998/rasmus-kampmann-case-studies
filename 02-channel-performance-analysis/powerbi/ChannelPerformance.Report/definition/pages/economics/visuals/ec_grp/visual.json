@@ -1,0 +1,57 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.7.0/schema.json",
+  "name": "ec_grp",
+  "position": {
+    "x": 864,
+    "y": 472,
+    "z": 3,
+    "height": 232,
+    "width": 200,
+    "tabOrder": 3
+  },
+  "visual": {
+    "visualType": "pivotTable",
+    "query": {
+      "queryState": {
+        "Rows": {
+          "projections": [
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "dim_channel"
+                    }
+                  },
+                  "Property": "channel_group"
+                }
+              },
+              "queryRef": "dim_channel.channel_group",
+              "nativeQueryRef": "channel_group",
+              "active": true
+            }
+          ]
+        },
+        "Values": {
+          "projections": [
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "_Measures"
+                    }
+                  },
+                  "Property": "Revenue · Net Revenue Retention"
+                }
+              },
+              "queryRef": "_Measures.Revenue · Net Revenue Retention",
+              "nativeQueryRef": "Revenue · Net Revenue Retention"
+            }
+          ]
+        }
+      }
+    },
+    "drillFilterOtherVisuals": true
+  }
+}

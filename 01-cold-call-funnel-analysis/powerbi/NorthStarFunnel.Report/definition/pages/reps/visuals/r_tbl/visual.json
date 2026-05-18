@@ -1,0 +1,57 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.7.0/schema.json",
+  "name": "r_tbl",
+  "position": {
+    "x": 656,
+    "y": 372,
+    "z": 2,
+    "height": 332,
+    "width": 608,
+    "tabOrder": 2
+  },
+  "visual": {
+    "visualType": "pivotTable",
+    "query": {
+      "queryState": {
+        "Rows": {
+          "projections": [
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "dim_rep"
+                    }
+                  },
+                  "Property": "rep_name"
+                }
+              },
+              "queryRef": "dim_rep.rep_name",
+              "nativeQueryRef": "rep_name",
+              "active": true
+            }
+          ]
+        },
+        "Values": {
+          "projections": [
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "_Measures"
+                    }
+                  },
+                  "Property": "Funnel · Win Rate Meeting->Won"
+                }
+              },
+              "queryRef": "_Measures.Funnel · Win Rate Meeting->Won",
+              "nativeQueryRef": "Funnel · Win Rate Meeting->Won"
+            }
+          ]
+        }
+      }
+    },
+    "drillFilterOtherVisuals": true
+  }
+}

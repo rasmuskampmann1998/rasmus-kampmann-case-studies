@@ -1,0 +1,35 @@
+table dim_lost_reason
+	lineageTag: 0b21bc28-6d80-4acb-9e82-2eab326c65b8
+
+	column lost_reason_key
+		dataType: string
+		lineageTag: c18310f9-a11a-4481-8cff-153f39050b54
+		summarizeBy: none
+		sourceColumn: lost_reason_key
+
+	column lost_reason
+		dataType: string
+		lineageTag: b987f966-1c6a-44d8-9904-de8f90db8936
+		summarizeBy: none
+		sourceColumn: lost_reason
+
+	column reason_category
+		dataType: string
+		lineageTag: 5d36c7c6-f7ba-4e0f-8ede-0ca3fd5c38a9
+		summarizeBy: none
+		sourceColumn: reason_category
+
+	partition dim_lost_reason = m
+		mode: import
+		source =
+				let
+					Src = Csv.Document(File.Contents(DataFolder & "\dim_lost_reason.csv"), [Delimiter=",", Encoding=65001, QuoteStyle=QuoteStyle.Csv]),
+					Prom = Table.PromoteHeaders(Src, [PromoteAllScalars=true]),
+					Typed = Table.TransformColumnTypes(Prom, {{"lost_reason_key", type text}, {"lost_reason", type text}, {"reason_category", type text}})
+				in
+					Typed
+
+	annotation PBI_NavigationStepName = Navigation
+
+	annotation PBI_ResultType = Table
+

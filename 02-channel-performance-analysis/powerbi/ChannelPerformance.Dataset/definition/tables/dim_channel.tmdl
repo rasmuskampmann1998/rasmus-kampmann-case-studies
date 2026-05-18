@@ -1,0 +1,47 @@
+table dim_channel
+	lineageTag: 6d63ff9d-d116-4756-833f-4e0ca7075157
+
+	column channel_key
+		dataType: string
+		lineageTag: 042bd03e-c7fd-4f86-8657-ea6ac8cdba0c
+		summarizeBy: none
+		sourceColumn: channel_key
+
+	column channel_name
+		dataType: string
+		lineageTag: c00e0867-6b74-4b08-be6a-f6bdcb3bc142
+		summarizeBy: none
+		sourceColumn: channel_name
+
+	column channel_group
+		dataType: string
+		lineageTag: 288a6e15-d57f-4b81-a85c-eac15a38f3d1
+		summarizeBy: none
+		sourceColumn: channel_group
+
+	column is_dialer_motion
+		dataType: int64
+		lineageTag: 37ac09b9-761b-4d43-8dba-997eff66a5c6
+		summarizeBy: sum
+		sourceColumn: is_dialer_motion
+
+	column cost_model
+		dataType: string
+		lineageTag: 3de98987-44c4-4945-beb4-b06eda973f14
+		summarizeBy: none
+		sourceColumn: cost_model
+
+	partition dim_channel = m
+		mode: import
+		source =
+				let
+					Src = Csv.Document(File.Contents(DataFolder & "\dim_channel.csv"), [Delimiter=",", Encoding=65001, QuoteStyle=QuoteStyle.Csv]),
+					Prom = Table.PromoteHeaders(Src, [PromoteAllScalars=true]),
+					Typed = Table.TransformColumnTypes(Prom, {{"channel_key", type text}, {"channel_name", type text}, {"channel_group", type text}, {"is_dialer_motion", Int64.Type}, {"cost_model", type text}})
+				in
+					Typed
+
+	annotation PBI_NavigationStepName = Navigation
+
+	annotation PBI_ResultType = Table
+

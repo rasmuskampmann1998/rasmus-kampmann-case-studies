@@ -1,0 +1,7 @@
+source_key,source_name,channel
+SRC01,Outbound Dialer,Cold Call
+SRC02,Sales Inbound,Cold Call
+SRC03,Re-booking,Cold Call
+SRC04,Referral,Cold Call
+SRC05,Cross-sell,Cold Call
+SRC06,Upsell,Cold Call

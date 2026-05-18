@@ -1,0 +1,11 @@
+channel_key,channel_name,channel_group,is_dialer_motion,cost_model
+CH01,Cold Calling,Outbound,1,per-dial
+CH02,LinkedIn Outbound,Outbound,0,per-lead
+CH03,Referral,Referral,0,zero
+CH04,Inbound Sales,Inbound,0,per-lead
+CH05,SEO,Inbound,0,zero
+CH06,Facebook Ads,Paid,0,CPM
+CH07,Instagram Ads,Paid,0,CPM
+CH08,Cross-sell,Expansion,0,zero
+CH09,Upsell,Expansion,0,zero
+CH10,Re-bookings,Outbound,1,per-dial

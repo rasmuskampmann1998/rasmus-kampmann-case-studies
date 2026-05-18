@@ -1,0 +1,111 @@
+table _Measures
+	lineageTag: 51a73f06-e64d-4d82-ba72-1fc4fa084d3f
+
+	measure 'Funnel · Total Calls' = COUNTROWS ( fact_calls )
+		formatString: #,0
+		lineageTag: 05225783-1c0a-4482-8add-359aca05e62a
+
+	measure 'Funnel · Connected Calls' = SUM ( fact_calls[is_connected] )
+		formatString: #,0
+		lineageTag: 48ef4bc9-cbba-4f6a-ad59-ce311d870626
+
+	measure 'Funnel · Connect Rate' = DIVIDE ( [Funnel · Connected Calls], [Funnel · Total Calls] )
+		formatString: 0.0%
+		lineageTag: 90c2e538-1cae-4b46-9883-f41984e43b65
+
+	measure 'Funnel · Meetings Booked' = SUM ( fact_calls[is_meeting_booked] )
+		formatString: #,0
+		lineageTag: 2a873b35-bc10-4893-9bd7-1a527e87e222
+
+	measure 'Funnel · Meetings Held' = CALCULATE ( COUNTROWS ( fact_meetings ), fact_meetings[meeting_status] = "Held" )
+		formatString: #,0
+		lineageTag: bfb4c1a8-c835-4210-89ab-a691d96a9ac9
+
+	measure 'Funnel · Meeting Show Rate' = DIVIDE ( [Funnel · Meetings Held], [Funnel · Meetings Booked] )
+		formatString: 0.0%
+		lineageTag: 754c0705-ad03-479f-a265-f7be39e4f94e
+
+	measure 'Funnel · Won Deals' = SUM ( fact_deals[is_won] )
+		formatString: #,0
+		lineageTag: dea2d13b-033f-4f9b-9895-be799199946d
+
+	measure 'Funnel · Lost Deals' = SUM ( fact_deals[is_lost] )
+		formatString: #,0
+		lineageTag: 226934a6-6499-4e9b-b846-b2c0d0f92fca
+
+	measure 'Funnel · Win Rate Meeting->Won' = DIVIDE ( [Funnel · Won Deals], [Funnel · Meetings Held] )
+		formatString: 0.0%
+		lineageTag: 860d8b9d-1024-4003-9ab0-b87d3dc8123b
+
+	measure 'Funnel · Win Rate Call->Won' = DIVIDE ( [Funnel · Won Deals], [Funnel · Total Calls] )
+		formatString: 0.00%
+		lineageTag: 4654ca16-eb73-4d77-96b3-b9b15b1b3153
+
+	measure 'Funnel · Cancellation Share of Losses' =
+			DIVIDE (
+			    CALCULATE ( [Funnel · Lost Deals], dim_lost_reason[lost_reason] = "Meeting No-Show / Cancelled" ),
+			    [Funnel · Lost Deals]
+			)
+		formatString: 0.0%
+		lineageTag: 87ee3980-8485-47cb-ac3d-c211fdcd9cb2
+
+	measure 'Revenue · MRR Won USD' = CALCULATE ( SUM ( fact_deals[mrr_usd] ), fact_deals[is_won] = 1 )
+		formatString: \$#,0
+		lineageTag: ece86d72-c940-4f8a-9a99-f95625026cfd
+
+	measure 'Revenue · Avg MRR per Won Deal' = DIVIDE ( [Revenue · MRR Won USD], [Funnel · Won Deals] )
+		formatString: \$#,0
+		lineageTag: 78f7261f-bb86-499a-a5aa-5f9028c7e8a4
+
+	measure 'Funnel · Avg Days Call->Meeting' =
+			CALCULATE (
+			    AVERAGE ( fact_meetings[days_from_create] ),
+			    fact_meetings[meeting_status] = "Held"
+			)
+		formatString: 0.0
+		lineageTag: 2787bb7e-a447-42ce-b2c8-a3057a90ef9e
+
+	measure 'Funnel · Avg Days Meeting->Won' =
+			CALCULATE (
+			    AVERAGE ( fact_meetings[days_to_close] ),
+			    FILTER ( fact_meetings, NOT ISBLANK ( fact_meetings[days_to_close] ) ),
+			    fact_deals[is_won] = 1,
+			    USERELATIONSHIP ( fact_meetings[deal_key], fact_deals[deal_key] )
+			)
+		formatString: 0.0
+		lineageTag: b846ed16-6403-4e08-b17d-922ce6c7b7dd
+
+	measure 'ICP · Anti-ICP Flag' =
+			IF (
+			    SELECTEDVALUE ( dim_company[industry] ) IN { "Consulting", "Marketing", "Transport" },
+			    1, 0
+			)
+		formatString: 0
+		lineageTag: 91ce0247-81f0-4d48-b3be-d9d88c6b73d9
+
+	measure 'ICP · Sweet-Spot Lift vs Baseline' =
+			VAR Baseline = [Funnel · Win Rate Meeting->Won]
+			VAR SweetSpot =
+			    CALCULATE ( [Funnel · Win Rate Meeting->Won], dim_company[employee_band] = "6-20" )
+			RETURN SweetSpot - Baseline
+		formatString: 0.0%
+		lineageTag: 57d66aff-d709-4179-abcf-a71f23b9ebb1
+
+	column _
+		dataType: string
+		lineageTag: 29333eb9-1c6a-4c7f-afed-d7e410096aa1
+		summarizeBy: none
+		sourceColumn: _
+
+		annotation SummarizationSetBy = Automatic
+
+	partition _Measures = m
+		mode: import
+		source =
+				let
+					Source = Table.FromRows({}, {"_"})
+				in
+					Source
+
+	annotation PBI_ResultType = Table
+

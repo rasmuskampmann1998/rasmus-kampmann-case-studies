@@ -1,0 +1,65 @@
+table fact_touches
+	lineageTag: 5d362374-fbc7-4364-b7fb-446d92661aa4
+
+	column touch_key
+		dataType: string
+		lineageTag: a2a7a537-d545-4c80-88e9-4a25a1c65217
+		summarizeBy: none
+		sourceColumn: touch_key
+
+	column company_key
+		dataType: string
+		lineageTag: 44ae342b-cb4a-4a19-aa6a-078823c4fe8c
+		summarizeBy: none
+		sourceColumn: company_key
+
+	column channel_key
+		dataType: string
+		lineageTag: c84289ee-63d5-490d-bbfb-c2a35b34cf39
+		summarizeBy: none
+		sourceColumn: channel_key
+
+	column rep_key
+		dataType: string
+		lineageTag: 161007a0-2e03-46ff-ad98-8f94122eefa4
+		summarizeBy: none
+		sourceColumn: rep_key
+
+	column touch_date_key
+		dataType: int64
+		lineageTag: fcf82153-ba2e-4e94-9fda-52e3cf96f7c3
+		summarizeBy: none
+		sourceColumn: touch_date_key
+
+	column touch_outcome
+		dataType: string
+		lineageTag: bd92765e-3a40-42a6-a56b-1bbcca716162
+		summarizeBy: none
+		sourceColumn: touch_outcome
+
+	column touch_dialer_minutes
+		dataType: int64
+		lineageTag: 36ece53a-5bb2-4281-87fd-1a3e4cfce742
+		summarizeBy: sum
+		sourceColumn: touch_dialer_minutes
+
+	column led_to_deal
+		dataType: int64
+		lineageTag: de80bf5b-b888-4007-85d3-e1537d9eb77d
+		summarizeBy: sum
+		sourceColumn: led_to_deal
+
+	partition fact_touches = m
+		mode: import
+		source =
+				let
+					Src = Csv.Document(File.Contents(DataFolder & "\fact_touches.csv"), [Delimiter=",", Encoding=65001, QuoteStyle=QuoteStyle.Csv]),
+					Prom = Table.PromoteHeaders(Src, [PromoteAllScalars=true]),
+					Typed = Table.TransformColumnTypes(Prom, {{"touch_key", type text}, {"company_key", type text}, {"channel_key", type text}, {"rep_key", type text}, {"touch_date_key", Int64.Type}, {"touch_outcome", type text}, {"touch_dialer_minutes", Int64.Type}, {"led_to_deal", Int64.Type}})
+				in
+					Typed
+
+	annotation PBI_NavigationStepName = Navigation
+
+	annotation PBI_ResultType = Table
+

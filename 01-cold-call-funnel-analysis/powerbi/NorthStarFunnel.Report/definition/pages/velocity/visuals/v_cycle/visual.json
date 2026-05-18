@@ -1,0 +1,38 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.7.0/schema.json",
+  "name": "v_cycle",
+  "position": {
+    "x": 332,
+    "y": 472,
+    "z": 3,
+    "height": 232,
+    "width": 300,
+    "tabOrder": 3
+  },
+  "visual": {
+    "visualType": "card",
+    "query": {
+      "queryState": {
+        "Values": {
+          "projections": [
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "_Measures"
+                    }
+                  },
+                  "Property": "Funnel · Avg Days Meeting->Won"
+                }
+              },
+              "queryRef": "_Measures.Funnel · Avg Days Meeting->Won",
+              "nativeQueryRef": "Funnel · Avg Days Meeting->Won"
+            }
+          ]
+        }
+      }
+    },
+    "drillFilterOtherVisuals": true
+  }
+}

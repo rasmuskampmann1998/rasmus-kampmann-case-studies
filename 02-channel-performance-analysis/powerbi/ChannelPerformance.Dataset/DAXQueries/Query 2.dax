@@ -1,0 +1,6 @@
+Funnel · Avg Days Meeting->Won = CALCULATE (
+    AVERAGE ( fact_meetings[days_to_close] ),
+    FILTER ( fact_meetings, NOT ISBLANK ( fact_meetings[days_to_close] ) ),
+    fact_deals[is_won] = 1,
+    USERELATIONSHIP ( fact_meetings[deal_key], fact_deals[deal_key] )
+)

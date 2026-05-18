@@ -1,0 +1,57 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.7.0/schema.json",
+  "name": "v_hist",
+  "position": {
+    "x": 656,
+    "y": 16,
+    "z": 1,
+    "height": 440,
+    "width": 608,
+    "tabOrder": 1
+  },
+  "visual": {
+    "visualType": "columnChart",
+    "query": {
+      "queryState": {
+        "Category": {
+          "projections": [
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "fact_meetings"
+                    }
+                  },
+                  "Property": "days_to_close"
+                }
+              },
+              "queryRef": "fact_meetings.days_to_close",
+              "nativeQueryRef": "days_to_close",
+              "active": true
+            }
+          ]
+        },
+        "Y": {
+          "projections": [
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "_Measures"
+                    }
+                  },
+                  "Property": "Funnel · Won Deals"
+                }
+              },
+              "queryRef": "_Measures.Funnel · Won Deals",
+              "nativeQueryRef": "Funnel · Won Deals"
+            }
+          ]
+        }
+      }
+    },
+    "drillFilterOtherVisuals": true
+  }
+}

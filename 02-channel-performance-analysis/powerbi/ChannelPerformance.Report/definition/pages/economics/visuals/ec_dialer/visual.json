@@ -1,0 +1,38 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.7.0/schema.json",
+  "name": "ec_dialer",
+  "position": {
+    "x": 1076,
+    "y": 472,
+    "z": 4,
+    "height": 110,
+    "width": 188,
+    "tabOrder": 4
+  },
+  "visual": {
+    "visualType": "card",
+    "query": {
+      "queryState": {
+        "Values": {
+          "projections": [
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "_Measures"
+                    }
+                  },
+                  "Property": "Channel · MRR per Dialer Hour"
+                }
+              },
+              "queryRef": "_Measures.Channel · MRR per Dialer Hour",
+              "nativeQueryRef": "Channel · MRR per Dialer Hour"
+            }
+          ]
+        }
+      }
+    },
+    "drillFilterOtherVisuals": true
+  }
+}

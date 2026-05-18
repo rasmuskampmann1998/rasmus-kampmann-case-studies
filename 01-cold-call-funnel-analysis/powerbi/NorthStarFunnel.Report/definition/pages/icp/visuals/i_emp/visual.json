@@ -1,0 +1,57 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.7.0/schema.json",
+  "name": "i_emp",
+  "position": {
+    "x": 16,
+    "y": 16,
+    "z": 0,
+    "height": 340,
+    "width": 624,
+    "tabOrder": 0
+  },
+  "visual": {
+    "visualType": "columnChart",
+    "query": {
+      "queryState": {
+        "Category": {
+          "projections": [
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "dim_company"
+                    }
+                  },
+                  "Property": "employee_band"
+                }
+              },
+              "queryRef": "dim_company.employee_band",
+              "nativeQueryRef": "employee_band",
+              "active": true
+            }
+          ]
+        },
+        "Y": {
+          "projections": [
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "_Measures"
+                    }
+                  },
+                  "Property": "Funnel · Win Rate Meeting->Won"
+                }
+              },
+              "queryRef": "_Measures.Funnel · Win Rate Meeting->Won",
+              "nativeQueryRef": "Funnel · Win Rate Meeting->Won"
+            }
+          ]
+        }
+      }
+    },
+    "drillFilterOtherVisuals": true
+  }
+}

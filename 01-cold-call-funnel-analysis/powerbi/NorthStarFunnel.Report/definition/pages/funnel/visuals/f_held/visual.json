@@ -1,0 +1,38 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.7.0/schema.json",
+  "name": "f_held",
+  "position": {
+    "x": 520,
+    "y": 16,
+    "z": 2,
+    "height": 110,
+    "width": 240,
+    "tabOrder": 2
+  },
+  "visual": {
+    "visualType": "card",
+    "query": {
+      "queryState": {
+        "Values": {
+          "projections": [
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "_Measures"
+                    }
+                  },
+                  "Property": "Funnel · Meetings Held"
+                }
+              },
+              "queryRef": "_Measures.Funnel · Meetings Held",
+              "nativeQueryRef": "Funnel · Meetings Held"
+            }
+          ]
+        }
+      }
+    },
+    "drillFilterOtherVisuals": true
+  }
+}

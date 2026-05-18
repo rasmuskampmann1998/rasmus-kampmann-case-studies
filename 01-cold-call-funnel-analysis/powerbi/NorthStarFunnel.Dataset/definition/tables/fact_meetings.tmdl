@@ -1,0 +1,71 @@
+table fact_meetings
+	lineageTag: 45d8bc71-a476-4ec7-a268-2e434fd22733
+
+	column meeting_key
+		dataType: string
+		lineageTag: acbebb00-fe5b-4789-8b09-12e97a5cec47
+		summarizeBy: none
+		sourceColumn: meeting_key
+
+	column deal_key
+		dataType: string
+		lineageTag: 3935948e-3da4-4e41-95a1-6a5faacd1436
+		summarizeBy: none
+		sourceColumn: deal_key
+
+	column company_key
+		dataType: string
+		lineageTag: 1ad02533-c776-4e53-9a16-8f357f4bbf07
+		summarizeBy: none
+		sourceColumn: company_key
+
+	column rep_key
+		dataType: string
+		lineageTag: 8b99cd60-71dd-4233-be9d-67e61fef539c
+		summarizeBy: none
+		sourceColumn: rep_key
+
+	column meeting_date_key
+		dataType: int64
+		lineageTag: d642567a-f423-479d-bfcc-4e4bb83d533e
+		summarizeBy: none
+		sourceColumn: meeting_date_key
+
+	column meeting_status
+		dataType: string
+		lineageTag: af21555b-06e0-427f-b174-8621b770818c
+		summarizeBy: none
+		sourceColumn: meeting_status
+
+	column no_show_flag
+		dataType: int64
+		lineageTag: 84eff541-0617-45cd-a5bd-b244dbdbd553
+		summarizeBy: sum
+		sourceColumn: no_show_flag
+
+	column days_from_create
+		dataType: double
+		lineageTag: 7bc67ced-d665-48fc-8b4d-c628916147e4
+		summarizeBy: sum
+		sourceColumn: days_from_create
+
+	column days_to_close
+		dataType: double
+		lineageTag: 148fedc2-1c9f-4f0f-8e85-275e80aef3f5
+		summarizeBy: sum
+		sourceColumn: days_to_close
+
+	partition fact_meetings = m
+		mode: import
+		source =
+				let
+					Src = Csv.Document(File.Contents(DataFolder & "\fact_meetings.csv"), [Delimiter=",", Encoding=65001, QuoteStyle=QuoteStyle.Csv]),
+					Prom = Table.PromoteHeaders(Src, [PromoteAllScalars=true]),
+					Typed = Table.TransformColumnTypes(Prom, {{"meeting_key", type text}, {"deal_key", type text}, {"company_key", type text}, {"rep_key", type text}, {"meeting_date_key", Int64.Type}, {"meeting_status", type text}, {"no_show_flag", Int64.Type}, {"days_from_create", type number}, {"days_to_close", type number}})
+				in
+					Typed
+
+	annotation PBI_NavigationStepName = Navigation
+
+	annotation PBI_ResultType = Table
+

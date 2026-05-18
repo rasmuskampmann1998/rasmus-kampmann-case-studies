@@ -1,0 +1,71 @@
+table dim_company
+	lineageTag: 22ba6331-968a-47b4-af06-46634ac573d9
+
+	column company_key
+		dataType: string
+		lineageTag: 0ac2d362-0d13-4ce1-9423-fdd55db6ad24
+		summarizeBy: none
+		sourceColumn: company_key
+
+	column company_name
+		dataType: string
+		lineageTag: 416b44f5-85fc-4dca-9558-c3e89367911b
+		summarizeBy: none
+		sourceColumn: company_name
+
+	column industry
+		dataType: string
+		lineageTag: 5440899b-a61e-4848-87cc-93b4ab06fb2e
+		summarizeBy: none
+		sourceColumn: industry
+
+	column employee_band
+		dataType: string
+		lineageTag: fbd7d69a-7e5d-4a33-a518-d45b83448311
+		summarizeBy: none
+		sourceColumn: employee_band
+
+	column revenue_band_usd
+		dataType: string
+		lineageTag: 83bf7dab-8919-46f2-99ce-485a2fd229bb
+		summarizeBy: none
+		sourceColumn: revenue_band_usd
+
+	column region
+		dataType: string
+		lineageTag: 7609bcbc-5810-4724-a11b-4b33f55e5616
+		summarizeBy: none
+		sourceColumn: region
+
+	column accounting_system
+		dataType: string
+		lineageTag: 5e854d69-9ca1-444a-b3bf-f9a7b1bec0ef
+		summarizeBy: none
+		sourceColumn: accounting_system
+
+	column company_type
+		dataType: string
+		lineageTag: 4ee3c8be-8802-49e2-a23c-1f22d624806e
+		summarizeBy: none
+		sourceColumn: company_type
+
+	column company_age_band
+		dataType: string
+		lineageTag: 026a4984-f2db-4c5f-a405-a0950e4d8965
+		summarizeBy: none
+		sourceColumn: company_age_band
+
+	partition dim_company = m
+		mode: import
+		source =
+				let
+					Src = Csv.Document(File.Contents(DataFolder & "\dim_company.csv"), [Delimiter=",", Encoding=65001, QuoteStyle=QuoteStyle.Csv]),
+					Prom = Table.PromoteHeaders(Src, [PromoteAllScalars=true]),
+					Typed = Table.TransformColumnTypes(Prom, {{"company_key", type text}, {"company_name", type text}, {"industry", type text}, {"employee_band", type text}, {"revenue_band_usd", type text}, {"region", type text}, {"accounting_system", type text}, {"company_type", type text}, {"company_age_band", type text}})
+				in
+					Typed
+
+	annotation PBI_NavigationStepName = Navigation
+
+	annotation PBI_ResultType = Table
+

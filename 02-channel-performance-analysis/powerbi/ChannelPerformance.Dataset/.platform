@@ -1,0 +1,11 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/gitIntegration/platformProperties/2.0.0/schema.json",
+  "metadata": {
+    "type": "SemanticModel",
+    "displayName": "ChannelPerformance"
+  },
+  "config": {
+    "version": "2.0",
+    "logicalId": "9e510fe8-0a7e-4c60-9ebb-12e5ec5a3b50"
+  }
+}

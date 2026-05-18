@@ -1,0 +1,142 @@
+{
+  "version": "1.1.0",
+  "diagrams": [
+    {
+      "ordinal": 0,
+      "scrollPosition": {
+        "x": 745,
+        "y": 142.28913437807671
+      },
+      "nodes": [
+        {
+          "location": {
+            "x": 1332.9420858015922,
+            "y": 459.28913437807671
+          },
+          "nodeIndex": "_Measures",
+          "size": {
+            "height": 300,
+            "width": 234
+          },
+          "zIndex": 0
+        },
+        {
+          "location": {
+            "x": 902.26544148025755,
+            "y": -42.619062732686871
+          },
+          "nodeIndex": "dim_company",
+          "size": {
+            "height": 296,
+            "width": 234
+          },
+          "zIndex": 0
+        },
+        {
+          "location": {
+            "x": 334.08598081692833,
+            "y": 553.87163480305139
+          },
+          "nodeIndex": "dim_date",
+          "size": {
+            "height": 296,
+            "width": 234
+          },
+          "zIndex": 0
+        },
+        {
+          "location": {
+            "x": 1098.9420858015922,
+            "y": 303.6943715684705
+          },
+          "nodeIndex": "dim_lost_reason",
+          "size": {
+            "height": 152,
+            "width": 234
+          },
+          "zIndex": 0
+        },
+        {
+          "location": {
+            "x": 50,
+            "y": 345.38013953078189
+          },
+          "nodeIndex": "dim_rep",
+          "size": {
+            "height": 176,
+            "width": 234
+          },
+          "zIndex": 0
+        },
+        {
+          "location": {
+            "x": 514.03030278311053,
+            "y": 992.58366184867509
+          },
+          "nodeIndex": "dim_source",
+          "size": {
+            "height": 152,
+            "width": 234
+          },
+          "zIndex": 0
+        },
+        {
+          "location": {
+            "x": 827.12429568424614,
+            "y": 992.57826875615342
+          },
+          "nodeIndex": "dim_stage",
+          "size": {
+            "height": 176,
+            "width": 234
+          },
+          "zIndex": 0
+        },
+        {
+          "location": {
+            "x": 346.05825592414772,
+            "y": -50
+          },
+          "nodeIndex": "fact_calls",
+          "size": {
+            "height": 296,
+            "width": 234
+          },
+          "zIndex": 0
+        },
+        {
+          "location": {
+            "x": 683.33312077176311,
+            "y": 642.34432207548093
+          },
+          "nodeIndex": "fact_deals",
+          "size": {
+            "height": 300,
+            "width": 234
+          },
+          "zIndex": 0
+        },
+        {
+          "location": {
+            "x": 618.18539864127092,
+            "y": 296.16243564887429
+          },
+          "nodeIndex": "fact_meetings",
+          "size": {
+            "height": 296,
+            "width": 234
+          },
+          "zIndex": 0
+        }
+      ],
+      "name": "All tables",
+      "zoomValue": 100,
+      "pinKeyFieldsToTop": false,
+      "showExtraHeaderInfo": false,
+      "hideKeyFieldsWhenCollapsed": false,
+      "tablesLocked": false
+    }
+  ],
+  "selectedDiagram": "All tables",
+  "defaultDiagram": "All tables"
+}

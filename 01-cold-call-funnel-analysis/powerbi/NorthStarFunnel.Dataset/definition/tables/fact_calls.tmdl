@@ -1,0 +1,71 @@
+table fact_calls
+	lineageTag: a0af64a1-3f53-4ea1-bc3e-3bd73a83091f
+
+	column call_key
+		dataType: string
+		lineageTag: 86eca868-17a6-4cf9-a220-5142011fc8f2
+		summarizeBy: none
+		sourceColumn: call_key
+
+	column company_key
+		dataType: string
+		lineageTag: f97696e4-1125-423d-a2c7-1df5209bdfda
+		summarizeBy: none
+		sourceColumn: company_key
+
+	column rep_key
+		dataType: string
+		lineageTag: c03e7a99-8040-4489-afcb-a057d4dc407d
+		summarizeBy: none
+		sourceColumn: rep_key
+
+	column call_date_key
+		dataType: int64
+		lineageTag: 7dbb63b0-a362-414e-a9d5-8332c5a56a6b
+		summarizeBy: none
+		sourceColumn: call_date_key
+
+	column call_outcome
+		dataType: string
+		lineageTag: 0b979d60-dab6-4f1e-b0bb-f7d3e056581f
+		summarizeBy: none
+		sourceColumn: call_outcome
+
+	column attempts_count
+		dataType: int64
+		lineageTag: 42b0af14-d982-444e-b2bf-e30a392d5364
+		summarizeBy: sum
+		sourceColumn: attempts_count
+
+	column call_duration_sec
+		dataType: int64
+		lineageTag: df5be759-55c5-4511-8c69-5d15c559a23d
+		summarizeBy: sum
+		sourceColumn: call_duration_sec
+
+	column is_connected
+		dataType: int64
+		lineageTag: 1a40f3af-5425-4559-8ab4-d994e6a5396e
+		summarizeBy: sum
+		sourceColumn: is_connected
+
+	column is_meeting_booked
+		dataType: int64
+		lineageTag: 3057d201-0a39-47f7-ab46-295b0ce095e7
+		summarizeBy: sum
+		sourceColumn: is_meeting_booked
+
+	partition fact_calls = m
+		mode: import
+		source =
+				let
+					Src = Csv.Document(File.Contents(DataFolder & "\fact_calls.csv"), [Delimiter=",", Encoding=65001, QuoteStyle=QuoteStyle.Csv]),
+					Prom = Table.PromoteHeaders(Src, [PromoteAllScalars=true]),
+					Typed = Table.TransformColumnTypes(Prom, {{"call_key", type text}, {"company_key", type text}, {"rep_key", type text}, {"call_date_key", Int64.Type}, {"call_outcome", type text}, {"attempts_count", Int64.Type}, {"call_duration_sec", Int64.Type}, {"is_connected", Int64.Type}, {"is_meeting_booked", Int64.Type}})
+				in
+					Typed
+
+	annotation PBI_NavigationStepName = Navigation
+
+	annotation PBI_ResultType = Table
+

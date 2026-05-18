@@ -1,0 +1,77 @@
+table fact_meetings
+	lineageTag: d3dfb0f7-6701-4a93-a7d2-b771efaa5eb7
+
+	column meeting_key
+		dataType: string
+		lineageTag: 232e41be-eaa2-4dfc-aa60-04cc16452f4b
+		summarizeBy: none
+		sourceColumn: meeting_key
+
+	column deal_key
+		dataType: string
+		lineageTag: 3cf50489-9c11-4917-ab37-1fbd4c8c261d
+		summarizeBy: none
+		sourceColumn: deal_key
+
+	column company_key
+		dataType: string
+		lineageTag: e56a1107-0d0c-4a14-9397-ce297b0eefa5
+		summarizeBy: none
+		sourceColumn: company_key
+
+	column channel_key
+		dataType: string
+		lineageTag: b29ba3c7-0d89-4b41-b937-a8c27407b839
+		summarizeBy: none
+		sourceColumn: channel_key
+
+	column rep_key
+		dataType: string
+		lineageTag: ee40dbf3-17ef-490c-b8d5-a632484f21e4
+		summarizeBy: none
+		sourceColumn: rep_key
+
+	column meeting_date_key
+		dataType: int64
+		lineageTag: 0223eced-43ae-48c3-89ae-68fa2bbc8ec0
+		summarizeBy: none
+		sourceColumn: meeting_date_key
+
+	column meeting_status
+		dataType: string
+		lineageTag: f03b1aca-f909-4a3a-985a-0ad87240f8a3
+		summarizeBy: none
+		sourceColumn: meeting_status
+
+	column no_show_flag
+		dataType: int64
+		lineageTag: 3cc9c249-fb36-4ad6-8725-d18ecf56abc4
+		summarizeBy: sum
+		sourceColumn: no_show_flag
+
+	column days_from_first_touch
+		dataType: double
+		lineageTag: ae0367db-0803-4e81-8225-c079caf848f2
+		summarizeBy: sum
+		sourceColumn: days_from_first_touch
+
+	column days_to_close
+		dataType: double
+		lineageTag: 832e47c9-1c5f-4608-81f6-acc34fd1328d
+		summarizeBy: sum
+		sourceColumn: days_to_close
+
+	partition fact_meetings = m
+		mode: import
+		source =
+				let
+					Src = Csv.Document(File.Contents(DataFolder & "\fact_meetings.csv"), [Delimiter=",", Encoding=65001, QuoteStyle=QuoteStyle.Csv]),
+					Prom = Table.PromoteHeaders(Src, [PromoteAllScalars=true]),
+					Typed = Table.TransformColumnTypes(Prom, {{"meeting_key", type text}, {"deal_key", type text}, {"company_key", type text}, {"channel_key", type text}, {"rep_key", type text}, {"meeting_date_key", Int64.Type}, {"meeting_status", type text}, {"no_show_flag", Int64.Type}, {"days_from_first_touch", type number}, {"days_to_close", type number}})
+				in
+					Typed
+
+	annotation PBI_NavigationStepName = Navigation
+
+	annotation PBI_ResultType = Table
+

@@ -1,0 +1,81 @@
+/// dim_date is the report's date dimension. It is marked as the official
+/// date table statically via the table-level annotation
+/// `__PBI_MarkAsDateTable = {"dt":"date"}` (emitted below) so time
+/// intelligence works on first refresh with no Desktop step. The
+/// auto-date-table internal markers (dataCategory: Time / padded date
+/// columns) are deliberately NOT hand-authored.
+table dim_date
+	lineageTag: 7142d5d0-1352-42a1-8a84-5d3146ffd66e
+
+	column date_key
+		dataType: int64
+		lineageTag: a928a393-e789-4f3c-91cc-1d8975ad5013
+		summarizeBy: none
+		sourceColumn: date_key
+
+	column date
+		dataType: dateTime
+		formatString: Long Date
+		lineageTag: f122a325-4780-4b6b-9873-1a613d13d12c
+		summarizeBy: none
+		sourceColumn: date
+
+	column year
+		dataType: int64
+		lineageTag: a2b3bbc8-e88e-47af-bd29-fe9e9b39d153
+		summarizeBy: sum
+		sourceColumn: year
+
+	column quarter
+		dataType: int64
+		lineageTag: b58f38ab-840f-42bd-b0f3-87e16db249f5
+		summarizeBy: sum
+		sourceColumn: quarter
+
+	column month
+		dataType: int64
+		lineageTag: 407ee55e-0857-4bee-8cca-aa3656f2787b
+		summarizeBy: sum
+		sourceColumn: month
+
+	column month_name
+		dataType: string
+		lineageTag: 4ea9e0cc-3460-4ac7-a3a2-4059aa31ef7e
+		summarizeBy: none
+		sourceColumn: month_name
+		sortByColumn: month
+
+	column week_of_year
+		dataType: int64
+		lineageTag: 6a0589d2-c287-4014-94c5-88ed4d83fd7b
+		summarizeBy: sum
+		sourceColumn: week_of_year
+
+	column day_of_week
+		dataType: string
+		lineageTag: cd7fa274-f3a7-4736-b65b-9dbaddce24cc
+		summarizeBy: none
+		sourceColumn: day_of_week
+
+	column is_business_day
+		dataType: boolean
+		lineageTag: 76ac95c8-c9bd-4a4b-9fcb-1f77b2fd0962
+		summarizeBy: none
+		sourceColumn: is_business_day
+
+	partition dim_date = m
+		mode: import
+		source =
+				let
+					Src = Csv.Document(File.Contents(DataFolder & "\dim_date.csv"), [Delimiter=",", Encoding=65001, QuoteStyle=QuoteStyle.Csv]),
+					Prom = Table.PromoteHeaders(Src, [PromoteAllScalars=true]),
+					Typed = Table.TransformColumnTypes(Prom, {{"date_key", Int64.Type}, {"date", type datetime}, {"year", Int64.Type}, {"quarter", Int64.Type}, {"month", Int64.Type}, {"month_name", type text}, {"week_of_year", Int64.Type}, {"day_of_week", type text}, {"is_business_day", type logical}})
+				in
+					Typed
+
+	annotation PBI_NavigationStepName = Navigation
+
+	annotation PBI_ResultType = Table
+
+	annotation __PBI_MarkAsDateTable = {"dt":"date"}
+
