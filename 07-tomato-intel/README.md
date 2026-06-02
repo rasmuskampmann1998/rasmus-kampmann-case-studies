@@ -1,6 +1,6 @@
 # Market Intelligence Platform (Tomato Intel)
 
-> *Real-time competitive and market intelligence for an agricultural technology client. 218 sources, hundreds of articles a day, surfaced as a continuously updated dashboard with semantic search, agentic scraping, multi-LLM interpretation, and a RAG chat panel.*
+> *Real-time competitive and market intelligence for an agricultural technology client. 228 sources, hundreds of articles a day, surfaced as a continuously updated dashboard with agentic scraping, multi-LLM interpretation, a RAG chat panel, and a cross-source signal-detection layer that flags when one entity surfaces across patents, funding, and regulation in the same window.*
 
 ## Live demo
 
@@ -16,14 +16,15 @@ The brief: build a platform that collects, processes, and interprets this inform
 
 ## What I built
 
-A full-stack intelligence platform with four pillars:
+A full-stack intelligence platform with five pillars:
 
 - **Agentic scraping.** A Claude-driven agent decides which source to pull from next, plans the scrape sequence, and reroutes when a source fails. Two agentic surfaces total: the scraper agent and a streaming ScraperBuilder that proposes new source configs from a URL.
 - **Multi-LLM interpretation.** Every article gets read, classified, translated if needed, summarised, scored for relevance, and embedded. Claude Haiku for bulk, Claude Sonnet for synthesis, DeepSeek for non-English perspectives, Perplexity for real-time web search.
 - **RAG dashboard with citations.** The chat panel composes answers from the top-k retrieved articles using pgvector cosine similarity. Sources cite inline as clickable pills, Perplexity-style.
+- **Signal detection.** Articles get reduced to named entities, then a deterministic rule engine flags cross-source patterns — the same entity appearing across ≥3 unrelated sources, or across patents + funding + regulation in one window. Signals rank against each customer's watchlist so the dashboard shows the few that matter, each cited back to verbatim source quotes.
 - **Observability and ops.** Per-source run logging, health endpoints, rate limiting, Sentry, PostHog, and a "Run now" button on every source.
 
-Current state: 218 active sources across 10 categories, 191 healthy, 21 empty, 0 failing. 13 external services wired together. One Render box, $7/month.
+Current state: 228 active sources across 10 categories. 13 external services wired together. One Render box, $7/month. The interpretation and RAG layers are production-proven; the signal-detection layer is built and runs end-to-end, with signal richness growing as more history accumulates (cross-source convergence is rare until an entity recurs over time).
 
 ## Data flow
 
@@ -43,12 +44,17 @@ Canonical intelligence schema (PostgreSQL)
     │       │
     │       ▼
     │   Interpreted items + Voyage embeddings (pgvector)
+    │       │
+    │       ▼
+    │   Signal pipeline: dedupe → entity extract (Haiku) → resolve →
+    │   5-rule detector → watchlist-ranked signals (cited to evidence)
     │
     ▼
 FastAPI endpoints
     │
-    ├──► React dashboard (live)
+    ├──► React dashboard (live, incl. Signals view)
     ├──► Chat panel (RAG + multi-LLM judge)
+    ├──► Signals API (/signals: feed, entity context, NL search, state, report)
     ├──► REST API v1 (bearer tokens)
     ├──► Weekly PDF (auto-generated)
     └──► CLI (intel ask, intel news, intel report)
@@ -113,6 +119,55 @@ Claude Sonnet then receives both raw answers plus the original question, and syn
 
 The judge pattern beats single-LLM for cross-source questions because the synthesis step has visibility into where models disagree. A single LLM has no reference point.
 
+## From articles to signals
+
+Interpretation answers "what does this article say." Signal detection answers a harder question: "what is happening across all the articles that no single one of them states." A competitor filing a patent is a data point. That same competitor filing a patent, closing a funding round, and appearing in a regulatory notice in the same week is a *move* — and no individual source reports it as one.
+
+The pipeline that produces signals runs after interpretation:
+
+```
+interpreted items
+   → dedupe          (title-similarity clustering; collapse the same story
+                       reported by many outlets into one cluster)
+   → entity extract  (Claude Haiku reads each cluster, pulls named entities:
+                       company, person, geography, disease, regulation,
+                       variety, technology, commodity, event — generic terms
+                       like "tomato" or "agriculture" are rejected)
+   → resolve         (rapidfuzz folds aliases — "Rijk Zwaan" / "Rijk Zwaan
+                       B.V." / "RZ" — into one canonical entity)
+   → detect          (a deterministic, LLM-free rule engine over the
+                       entity-to-source graph)
+   → rank            (score each signal against the customer's watchlist;
+                       surface the top few, suppress the rest)
+```
+
+The detector is five rules. It is intentionally **not** an LLM — every rule is a SQL aggregation or a numeric comparison, so a signal is auditable and reproducible, never a model's opinion:
+
+| Rule | Fires when | Status |
+|---|---|---|
+| Convergence | One entity appears in ≥3 unrelated sources across ≥2 STEEP buckets (e.g. patent + funding + regulation) within 7 days | Live |
+| Weak signal | One entity in ≥3 unrelated sources, single bucket | Live |
+| Anomaly | An entity's mention count this week is >2σ above its 30-day baseline | Self-suppresses until 30 days of history exist |
+| First-mover | An entity appears in a niche/specialist source ≥14 days before mainstream pickup | Needs source-tier labelling |
+| Geographic spread | A story cascades CN-press → EU-press → US-press over weeks | Needs cross-region coverage |
+
+Rules that lack their data precondition suppress themselves and log why, rather than firing noise. Every signal that does fire carries `signal_evidence` rows — verbatim quotes from the source articles it was built from. That is the "no hallucination" guarantee by construction: a signal cannot claim something no source said, because the claim is one click from the quote.
+
+The honest limit: cross-source convergence only fires when the *same specific entity* recurs across sources, which is rare in any single week at this source volume. The mechanism is built and verified end-to-end; signal density grows as history accumulates and alias-folding tightens. The earlier temptation — extracting generic terms so "signals" fire constantly — produces noise, not intelligence, and the entity extractor explicitly rejects it.
+
+## The signals dashboard
+
+A dedicated Signals view sits alongside the category feeds. Each signal renders as a card:
+
+- **Type + STEEP bucket + urgency**, and a confidence shown as a Strong / Medium / Weak chip — never a raw decimal, because the rule weights are not calibrated probabilities and shouldn't be dressed up as one.
+- **Evidence on demand** — open any card to read the verbatim source quotes it was built from, each linking out to the original article.
+- **Entity drill-in** — click an entity chip to see its 30-day mention timeline, the other signals it appears in, and its geographic spread.
+- **Natural-language search** — ask "competitor activity in hybrid tomatoes" and a Haiku pass maps it to a structured filter over the signal store.
+- **Triage** — approve, promote, or reject a signal; the state persists per customer and feeds back into ranking.
+- **On-demand reports** — generate an executive brief from the current signals, with a post-generation citation check that refuses to ship a report referencing a signal that doesn't resolve.
+
+The whole layer is scoped per customer through a thin overlay (`customer_accounts`, watchlists, taxonomies, per-signal state) over a shared signal store — so two customers see different rankings of the same underlying detection, without duplicating the data.
+
 ## Schema as code
 
 Four versioned migrations cover the evolution of the warehouse. Every change is reviewable in the repo:
@@ -130,8 +185,9 @@ Main tables (14 total) group by purpose:
 - **Users:** `search_profiles`, `profile_items`, `company_context`, `company_products`, `demo_profiles`
 - **System:** `api_tokens`, `webhook_subscriptions`, `social_watched_accounts`
 - **Observability:** `scrape_runs`, `competitor_activity`, `trend_alerts`, plus the `source_health` view
+- **Signals:** `entities` (conformed dimension) + `entity_candidates` (pipeline staging), `signals`, `signal_evidence`, `signal_entity_links`, and the customer overlay (`customer_accounts`, `customer_watchlists`, `customer_taxonomies`, `customer_signal_state`), surfaced through a fan-out-safe `v_signals_with_entities_and_evidence` view
 
-Row-level security is on. The demo profile system loads its system prompt from `demo_profiles` so non-engineers can change agent behaviour by editing a database row.
+A later set of migrations adds the intelligence layer (lookup tables instead of enums so a new entity kind is an INSERT not a schema change; the entity/signal/customer tables above; anon-read grants). Row-level security is on. The demo profile system loads its system prompt from `demo_profiles` so non-engineers can change agent behaviour by editing a database row.
 
 ## Scheduling and source quality
 
@@ -143,6 +199,7 @@ APScheduler runs inside the FastAPI process. Different jobs on different cadence
 - Weekly Monday 07:00 UTC: genetics, patents
 - Every 3 days: 6-platform social scraper + competitor intel classifier
 - Weekly Monday 07:30 UTC: PDF digest via SendGrid
+- Weekly Monday 10:00 UTC: the intelligence pipeline (dedupe → entity extract → resolve → detect → rank), guarded by a weekly LLM-spend ceiling and a zero-signal alert that flags a broken run rather than silently producing nothing
 
 Source quality controls that turn a demo into a system:
 
@@ -215,7 +272,7 @@ The job that used to take a person most of a week now takes the system a few hou
 
 ## Numbers
 
-218 active sources. 191 healthy. 21 empty. 0 failing. ~470 junk rows purged. 11 mojibake source names repaired. 47 items relabeled. 13 external services. $35 Apify budget per 3 months. $7 hosting bill per month. One person built it.
+228 active sources across 10 categories. ~470 junk rows purged. 11 mojibake source names repaired. 47 items relabeled. 13 external services. Five-rule signal detector over a conformed entity graph. $35 Apify budget per 3 months. $7 hosting bill per month. One person built it.
 
 ## What I'd do differently
 
