@@ -47,8 +47,12 @@ for year, n_inv in [(2024, 220), (2025, 120)]:
             pidx = rng.integers(0, N_PRODUCTS)
             revenue = round(float(rng.gamma(2.0, 4000)) + 500, 2)
             cost = round(revenue * (1 - prod_margin[pidx]), 2)
-            # ~85% of lines paid; the rest outstanding (drives AR ageing)
-            paid = rng.random() < 0.85
+            # Older invoices are far more likely to be paid (they've had time), so the
+            # OUTSTANDING balance concentrates in recent invoices -> a realistic AR ageing
+            # curve (most owed is recent, a minority slips past 90 days).
+            days_old = (pd.Timestamp("2026-01-01") - d).days
+            pay_prob = 0.99 if days_old > 120 else (0.92 if days_old > 60 else 0.55)
+            paid = rng.random() < pay_prob
             rows.append({
                 "invoice_no": f"INV-{year}-{line_id:05d}",
                 "line_id": line_id,

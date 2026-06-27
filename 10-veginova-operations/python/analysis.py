@@ -10,6 +10,9 @@ It is a planning system with scenario testing, NOT a statistical forecast. There
 MAPE here and there is none in the real build; the engine reproduces the planner's
 judgment and keeps it live, it does not predict demand.
 
+Charts are written twice: numbered ones for this repo, and two with the exact filenames
+the portfolio site references (so the site renders them directly).
+
 Inputs: the illustrative CSVs in ../data/ (run generate_sample_data.py first).
 """
 from __future__ import annotations
@@ -24,10 +27,39 @@ DATA = Path(__file__).resolve().parent.parent / "data"
 OUT = Path(__file__).resolve().parent / "charts"
 OUT.mkdir(exist_ok=True)
 
+# Site image folder: write the two slots the articles reference, with exact names.
+SITE = Path(__file__).resolve().parents[3] / "rasmuskampmann.com" / "assets" / "images" / "projects"
+
+# Brand palette (matches the site).
 LIME = "#9DEB6E"
-BLACK = "#0A0A0A"
-GREEN_MID = "#2D6A4F"
+INK = "#0A0A0A"
+GREEN = "#2D6A4F"
 RED = "#DC2626"
+GREY = "#6B7280"
+PANEL = "#FAFAF8"
+
+
+def brand():
+    plt.rcParams.update({
+        "figure.facecolor": "white",
+        "axes.facecolor": PANEL,
+        "axes.edgecolor": "#E5E7EB",
+        "axes.grid": True,
+        "grid.color": "#ECECEC",
+        "grid.linewidth": 0.8,
+        "axes.axisbelow": True,
+        "axes.titlecolor": INK,
+        "axes.titlesize": 13,
+        "axes.titleweight": "bold",
+        "axes.labelcolor": GREY,
+        "axes.labelsize": 10,
+        "xtick.color": GREY,
+        "ytick.color": GREY,
+        "font.size": 10,
+        "font.family": "DejaVu Sans",
+        "figure.dpi": 150,
+    })
+
 
 # Known-good targets from the planner's spreadsheet (illustrative anchor varieties).
 ANCHORS = {
@@ -78,57 +110,79 @@ def validate(plan: pd.DataFrame) -> None:
     print(f"Validation OK: {len(ANCHORS)}/{len(ANCHORS)} anchor varieties reproduce the planner's sheet, 0 mismatches.")
 
 
-def chart_production_plan(plan: pd.DataFrame) -> None:
-    """The main page: produce quantities per variety, coloured by red/green status."""
-    need = plan[plan["production_need"] > 0].sort_values("production_need", ascending=True)
-    colors = [RED if s == "red" else GREEN_MID for s in need["status"]]
-    fig, ax = plt.subplots(figsize=(9, 5))
-    ax.barh(need["product_key"], need["production_need"], color=colors, edgecolor=BLACK)
+def _save(fig, *paths):
+    for p in paths:
+        p.parent.mkdir(parents=True, exist_ok=True)
+        fig.savefig(p, bbox_inches="tight", facecolor="white")
+    plt.close(fig)
+
+
+def chart_production_plan(plan: pd.DataFrame):
+    """Main page: produce quantities per variety, coloured red/green. -> site 'production'."""
+    need = plan[plan["production_need"] > 0].sort_values("production_need")
+    colors = [RED if s == "red" else GREEN for s in need["status"]]
+    fig, ax = plt.subplots(figsize=(9, 5.2))
+    bars = ax.barh(need["product_key"], need["production_need"], color=colors, edgecolor="white", linewidth=0.6)
+    for b, v in zip(bars, need["production_need"]):
+        ax.text(b.get_width() + need["production_need"].max() * 0.01, b.get_y() + b.get_height() / 2,
+                f"{v:,.0f}", va="center", ha="left", fontsize=8.5, color=INK)
     ax.set_xlabel("Production need (KS)")
-    ax.set_title("What to produce, by variety (red = below safety line)")
-    plt.tight_layout()
-    plt.savefig(OUT / "01_production_plan.png", dpi=140)
-    plt.close()
+    ax.set_title("What to produce, by variety", loc="left", pad=26)
+    ax.text(0, 1.04, "Red = below the safety line  ·  illustrative data", transform=ax.transAxes,
+            fontsize=9, color=GREY)
+    ax.margins(x=0.12)
+    _save(fig, OUT / "01_production_plan.png", SITE / "veginova-operations-production.png")
 
 
-def chart_status_counts(plan: pd.DataFrame) -> None:
-    """The KPI cards: total to produce, # red, # needing production (the last two differ)."""
+def chart_status_counts(plan: pd.DataFrame):
+    """KPI cards: total to produce, # red, # needing production (last two differ on purpose)."""
     total = round(plan["production_need"].sum())
     red = int((plan["status"] == "red").sum())
     needing = int((plan["production_need"] > 0).sum())
     fig, ax = plt.subplots(figsize=(8, 4))
     bars = ax.bar(["To produce (KS)", "Varieties red", "Needing production"],
-                  [total, red, needing], color=[LIME, RED, BLACK])
+                  [total, red, needing], color=[LIME, RED, INK], edgecolor="white")
     for b, v in zip(bars, [total, red, needing]):
-        ax.text(b.get_x() + b.get_width() / 2, v, str(v), ha="center", va="bottom", fontweight="bold")
-    ax.set_title("Headline counts (red > needing production, on purpose)")
-    plt.tight_layout()
-    plt.savefig(OUT / "02_status_counts.png", dpi=140)
-    plt.close()
+        ax.text(b.get_x() + b.get_width() / 2, b.get_height(), f"{v:,}", ha="center", va="bottom",
+                fontweight="bold", color=INK)
+    ax.set_title("Headline counts", loc="left", pad=26)
+    ax.text(0, 1.04, "Red > needing production, on purpose  ·  illustrative data",
+            transform=ax.transAxes, fontsize=9, color=GREY)
+    ax.set_ylim(0, max(total, red, needing) * 1.18)
+    _save(fig, OUT / "02_status_counts.png")
 
 
-def chart_ending_stock(plan: pd.DataFrame) -> None:
-    """Ending stock vs the red line, so the at-risk varieties are visible at a glance."""
-    active = plan[plan["status"] != "stopped"].sort_values("ending_stock")
-    colors = [RED if s == "red" else GREEN_MID for s in active["status"]]
-    fig, ax = plt.subplots(figsize=(10, 5))
-    ax.bar(active["product_key"], active["ending_stock"], color=colors, edgecolor=BLACK)
-    ax.axhline(active["red_threshold"].iloc[0], color=RED, ls="--", lw=1, label="Red line")
-    ax.set_ylabel("Ending stock (KS)")
-    ax.set_title("Ending stock by variety, against the safety red line")
-    ax.legend()
-    plt.tight_layout()
-    plt.savefig(OUT / "03_ending_stock.png", dpi=140)
-    plt.close()
+def chart_need_vs_plan(plan: pd.DataFrame):
+    """Computed need beside a planner batch target, with the lot-sizing gap. -> site 'need-vs-plan'."""
+    need = plan[plan["production_need"] > 0].sort_values("production_need", ascending=False).copy()
+    # Illustrative planner batch target: rounded up to the next 50 KS, min 150 (lot sizing).
+    need["plan_target"] = (((need["production_need"] / 50).apply(lambda x: int(x) + 1) * 50)
+                           .clip(lower=150))
+    y = range(len(need))
+    fig, ax = plt.subplots(figsize=(9, 5.2))
+    ax.barh([i + 0.2 for i in y], need["plan_target"], height=0.4, color="#CBD5C0",
+            edgecolor="white", label="Planner batch (lot-sized)")
+    ax.barh([i - 0.2 for i in y], need["production_need"], height=0.4, color=GREEN,
+            edgecolor="white", label="Computed need")
+    ax.set_yticks(list(y))
+    ax.set_yticklabels(need["product_key"])
+    ax.invert_yaxis()
+    ax.set_xlabel("KS")
+    ax.set_title("Computed need vs the planner's batch plan", loc="left", pad=26)
+    ax.text(0, 1.04, "The lot-sizing gap, made visible  ·  illustrative data",
+            transform=ax.transAxes, fontsize=9, color=GREY)
+    ax.legend(loc="lower right", frameon=False, fontsize=9)
+    _save(fig, OUT / "04_need_vs_plan.png", SITE / "veginova-operations-need-vs-plan.png")
 
 
 def main() -> None:
+    brand()
     plan = build_plan()
     validate(plan)
     chart_production_plan(plan)
     chart_status_counts(plan)
-    chart_ending_stock(plan)
-    print(f"Wrote 3 charts to {OUT}")
+    chart_need_vs_plan(plan)
+    print(f"Wrote charts to {OUT} and 2 site images to {SITE}")
 
 
 if __name__ == "__main__":
