@@ -1,96 +1,69 @@
-# A European seed producer Invoices & Finance. Power BI Dashboard Spec
+# Invoices & Finance. Power BI Dashboard Spec
+
+Power BI renders the mart and aggregates. All the work (cost attribution, the paid flag,
+the reconciliation) happened upstream in the pipeline, so the measures stay thin enough
+to verify by reading one line.
 
 ## Pages
 
-### 1. AR Ageing
-**Question:** What's overdue, and which customers are driving it?
+### 1. Overview (P&L)
+**Question:** What's the revenue, the contribution, and the cash owed, on one trusted view?
 
-- KPI cards: total overdue €, # overdue invoices, DSO (days), week-over-week delta
-- Stacked bar: outstanding € by ageing bucket (0–30 / 31–60 / 61–90 / 90+)
-- Top-10 overdue customers table with drill-through to invoice detail
-- Slicers: customer, ageing bucket, date range
+- KPI cards: revenue (basis-aware), contribution (Dækningsbidrag), outstanding (AR)
+- Basis toggle slicer: Expected / Confirmed / Recognized
+- Revenue by month
+- The reconciliation result sits behind the revenue figure: leadership is told it ties out
 
-### 2. Cash Collection Forecast
-**Question:** How much cash should land in the next 14 days, and from whom?
+### 2. Contribution by variety
+**Question:** Which varieties carry the business?
 
-- KPI: forecast cash-in next 14 days, with ±9% confidence band
-- Stacked column: daily projected inflows by customer
-- Variance line: this week's forecast vs. last week's
-- Detail table: customer, expected_amount, expected_date, confidence
+- Horizontal bar: contribution margin % per variety, sorted ascending
+- Filtered to real seed lines (is_seed_revenue), so licenses/logistics don't inflate it
+- Conditional formatting: red on the thin-margin lines
 
-### 3. Gross Margin by Seed
-**Question:** Which seeds are profitable, and which are running thin?
+### 3. Customer profitability
+**Question:** Which customers contribute most, not just bill most?
 
-- Horizontal bar: gross margin % per seed, sorted ascending, colour-coded (<15% red)
-- KPI: # seeds below 15% margin floor
-- Scatter: kg sold (x) vs. margin % (y). quadrant analysis
-- Slicers: seed family, customer
+- Scatter: revenue (x) vs contribution (y), one dot per customer
+- Rank table: revenue rank beside contribution rank, with the delta highlighted
+- Surfaces customers who are big on revenue but small on contribution (a mix issue)
 
-### 4. Customer Profitability
-**Question:** Which customers contribute most to gross profit, not just revenue?
+### 4. Receivables (AR ageing)
+**Question:** What's owed, how old, and what's at risk?
 
-- Scatter: revenue (x) vs. gross profit (y), one dot per customer, sized by # invoices
-- Side-by-side rank table: top 10 by revenue | top 10 by gross profit (with rank delta)
-- Drill-through to customer detail page (12-month order history, payment behaviour, margin breakdown by seed)
+- Stacked bar: outstanding by ageing bucket (0-30 / 31-60 / 61-90 / 90+)
+- Top customers by outstanding (the collection-priority list)
+- Drill-through to invoice detail
 
-## DAX Measures
+## DAX (thin by design)
+
+Revenue is a basis toggle, not a calculation. Contribution and outstanding are one line each.
 
 ```dax
--- AR ageing
-Outstanding EUR =
-    SUMX (
-        invoice_status,
-        invoice_status[amount_eur] - invoice_status[paid_eur]
-    )
+Revenue =
+SWITCH(
+    SELECTEDVALUE('ref_revenue_basis'[basis], "Expected"),
+    "Expected",   SUM(fct_revenue[amount_dkk_expected]),
+    "Confirmed",  SUM(fct_revenue[amount_dkk_confirmed]),
+    "Recognized", CALCULATE(SUM(fct_revenue[amount_dkk_expected]),
+                  USERELATIONSHIP(dim_date[date_key], fct_revenue[recognition_date]))
+)
 
-Total Overdue EUR =
-    CALCULATE (
-        [Outstanding EUR],
-        invoice_status[derived_status] = "overdue"
-    )
+COGS           = SUM(fct_revenue[cost_dkk])
+Dækningsbidrag = [Revenue] - [COGS]                              -- contribution margin
+Outstanding    = [Revenue (Expected)] - [Revenue (Confirmed)]   -- receivables
 
-DSO Days =
-    AVERAGEX (
-        FILTER (
-            invoice_status,
-            invoice_status[derived_status] = "paid"
-        ),
-        DATEDIFF ( invoice_status[issue_date], invoice_status[payment_date], DAY )
-    )
-
--- Margin
-Revenue EUR = SUM ( invoices[amount_eur] )
-
-Cost EUR =
-    SUMX (
-        sales_orders,
-        sales_orders[qty]
-            * RELATED ( production_cost[cost_per_kg_eur] )
-    )
-
-Gross Margin % =
-    DIVIDE ( [Revenue EUR] - [Cost EUR], [Revenue EUR] )
-
-Seeds Below Floor =
-    COUNTROWS (
-        FILTER (
-            VALUES ( sales_orders[seed_code] ),
-            [Gross Margin %] < 0.15
-        )
-    )
-
--- Customer profitability
-Customer Revenue Rank =
-    RANKX ( ALL ( invoices[customer_id] ), [Revenue EUR],, DESC )
-
-Customer GP Rank =
-    RANKX ( ALL ( invoices[customer_id] ), [Revenue EUR] - [Cost EUR],, DESC )
-
-Rank Delta = [Customer Revenue Rank] - [Customer GP Rank]
+Seed Gross Margin % =
+VAR SeedRev  = CALCULATE([Revenue], fct_revenue[is_seed_revenue] = TRUE)
+VAR SeedCost = CALCULATE([COGS],    fct_revenue[is_seed_revenue] = TRUE)
+RETURN DIVIDE(SeedRev - SeedCost, SeedRev)
 ```
 
-## Refresh schedule
+The margin shown is **contribution**, not statutory profit: COGS is direct seed cost only,
+overhead lives in the bookkeeping system by design.
 
-- **Invoices + payments:** twice daily (07:00 + 14:00 CET) via Python ETL
-- **Production cost:** weekly Monday 06:00 CET
-- **Power BI dataset:** auto-refresh tied to ETL completion
+## Refresh
+
+- Invoices refreshed from the source workbook via the Python loader (truncate + insert, idempotent)
+- The reconcile gate runs before the mart is trusted: if the tie to the ledger breaks, it fails
+  before the number reaches a chart

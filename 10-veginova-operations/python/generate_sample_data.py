@@ -1,10 +1,15 @@
 """
-Generate anonymised sample CSVs for the A European seed producer ops case study.
+Generate illustrative sample CSVs for the operations / production-planning case study.
 
-Runs deterministically (seed=42) so the four files reproduce identically.
-Volumes are scaled randomly per seed_code so the absolute numbers can't be
-reverse-engineered to real commercial data, but the structural patterns
-(Pareto, cover bands, mismatch, intake cliff) are preserved.
+Runs deterministically (seed=42) so the inputs reproduce identically. The numbers are
+synthetic stand-ins for confidential client data, but they are built so the planning
+engine (see sql/schema.sql :: v_production_plan) reproduces the four anchor varieties
+the case study cites (VAR-A..D), including the instructive VAR-B: red, yet production
+need zero, because it still covers its own sales.
+
+Inputs written: product_params, forecast_sales, stock_on_hand, incoming_production.
+The engine derives production_need / ending_stock / status from these; nothing about
+the plan itself is hand-written here.
 """
 from __future__ import annotations
 
@@ -17,84 +22,57 @@ rng = np.random.default_rng(42)
 OUT = Path(__file__).resolve().parent.parent / "data"
 OUT.mkdir(exist_ok=True)
 
-N_SEEDS = 47
-N_CUSTOMERS = 60
-SEED_CODES = [f"SEED_{i:04d}" for i in range(1, N_SEEDS + 1)]
-CUSTOMERS = [f"Customer_{i:05d}" for i in range(1, N_CUSTOMERS + 1)]
-REGIONS = ["NL", "DE", "FR", "ES", "DK", "IT"]
-CHANNELS = ["direct", "distributor", "online"]
+SALES_YEAR = "26/27"
+RED_LINE = 100.0  # KS; the safety red line
 
-# Volume scalers. Pareto-distributed so a few seeds dominate
-seed_volume_scale = rng.pareto(0.8, N_SEEDS) + 0.5
-seed_volume_scale = seed_volume_scale / seed_volume_scale.sum() * 100  # normalise
+# Four hand-pinned anchor varieties so the validation gate has known-good targets.
+# (sales, stock, incoming) chosen to hit the documented ending_stock / status / need.
+#   ending_stock = stock + incoming - sales ;  need = max(sales - stock - incoming, 0)
+ANCHORS = {
+    "VAR-A": dict(name="Anchor A", sales=400.0, stock=1200.03, incoming=143.0),   # ending 943.03 green need 0
+    "VAR-B": dict(name="Anchor B", sales=300.0, stock=297.48,  incoming=50.0),    # ending  47.48 red   need 0 (covers itself)
+    "VAR-C": dict(name="Anchor C", sales=300.0, stock=115.85,  incoming=50.0),    # ending -134.15 red   need 134.15
+    "VAR-D": dict(name="Anchor D", sales=200.0, stock=2433.52, incoming=50.0),    # ending 2283.52 green need 0
+}
 
-# ── Sales orders ───────────────────────────────────────────────────────────
-dates = pd.date_range("2023-11-01", "2025-05-12", freq="D")
-orders = []
-for _ in range(1200):
-    seed_idx = rng.choice(N_SEEDS, p=seed_volume_scale / seed_volume_scale.sum())
-    d = rng.choice(dates)
-    delivery_open = d + pd.Timedelta(days=int(rng.integers(30, 180)))
-    orders.append({
-        "order_id": 100000 + len(orders),
-        "order_date": d,
-        "customer_id": rng.choice(CUSTOMERS),
-        "seed_code": SEED_CODES[seed_idx],
-        "qty": round(rng.gamma(2, seed_volume_scale[seed_idx] * 5), 2),
-        "unit": "kg",
-        "delivery_window_from": delivery_open,
-        "delivery_window_to": delivery_open + pd.Timedelta(days=14),
-        "region": rng.choice(REGIONS),
-        "channel": rng.choice(CHANNELS, p=[0.55, 0.35, 0.10]),
-    })
-pd.DataFrame(orders).to_csv(OUT / "sales_orders.csv", index=False)
+# Plus a spread of additional active varieties so the headline counts look realistic
+# (some red, some needing production), all derived purely from these inputs.
+EXTRA = [f"VAR-{chr(c)}" for c in range(ord("E"), ord("R"))]  # E..Q -> 13 more
 
-# ── Inventory log ──────────────────────────────────────────────────────────
-inv = []
-for d in pd.date_range("2023-09-01", "2025-05-10", freq="W"):
-    for i, seed in enumerate(SEED_CODES):
-        intake_factor = 1.0
-        # Aug-Oct intake cliff
-        if d.month in (8, 9, 10):
-            intake_factor = rng.uniform(2.5, 5.0)
-        inv.append({
-            "seed_code": seed,
-            "lot_id": f"L{rng.integers(10000, 99999)}",
-            "qty_on_hand": round(seed_volume_scale[i] * 20 * intake_factor * rng.uniform(0.4, 1.2), 2),
-            "unit": "kg",
-            "location": rng.choice(["A1", "A2", "B1", "C1"]),
-            "last_count_date": d,
-        })
-pd.DataFrame(inv).to_csv(OUT / "inventory_log.csv", index=False)
+params, sales, stock, incoming = [], [], [], []
 
-# ── Production plan ────────────────────────────────────────────────────────
-prod = []
-months = pd.date_range("2025-01-01", "2026-12-01", freq="MS")
-for seed_idx, seed in enumerate(SEED_CODES):
-    for m in rng.choice(months, size=int(rng.integers(2, 6)), replace=False):
-        prod.append({
-            "seed_code": seed,
-            "period_yyyymm": int(m.strftime("%Y%m")),
-            "planned_qty": round(seed_volume_scale[seed_idx] * 40 * rng.uniform(0.6, 1.4), 2),
-            "status": rng.choice(["planned", "in_progress", "done", "paused"], p=[0.45, 0.20, 0.30, 0.05]),
-            "scenario": "base",
-        })
-pd.DataFrame(prod).to_csv(OUT / "production_plan.csv", index=False)
 
-# ── 24-month forecast ──────────────────────────────────────────────────────
-fc = []
-fc_months = pd.date_range("2025-05-01", "2027-04-01", freq="MS")
-for seed_idx, seed in enumerate(SEED_CODES):
-    for m in fc_months:
-        base = seed_volume_scale[seed_idx] * 18
-        for scen, mult in [("base", 1.0), ("upside", 1.25), ("downside", 0.75)]:
-            fc.append({
-                "seed_code": seed,
-                "period_yyyymm": int(m.strftime("%Y%m")),
-                "forecast_qty": round(base * mult * rng.uniform(0.85, 1.15), 2),
-                "scenario": scen,
-                "forecast_run": "2025-04-15",
-            })
-pd.DataFrame(fc).to_csv(OUT / "forecast_24m.csv", index=False)
+def add(key, name, s, st, inc, active=True):
+    params.append({"product_key": key, "variety_name": name, "active": active,
+                   "red_threshold": RED_LINE, "safety_floor": None, "safety_months": None})
+    # split expected sales across two channels so the reconcile cut has something to check
+    c1 = round(s * 0.55, 2)
+    sales.append({"product_key": key, "sales_year": SALES_YEAR, "channel": "channel_1", "qty_1000": c1})
+    sales.append({"product_key": key, "sales_year": SALES_YEAR, "channel": "channel_2", "qty_1000": round(s - c1, 2)})
+    stock.append({"product_key": key, "as_of_date": "2026-01-01", "qty_1000": st, "source": "warehouse_sheet"})
+    if inc:
+        incoming.append({"product_key": key, "arrival_date": "2026-04-01", "qty_1000": inc})
 
-print(f"Wrote 4 sample CSVs to {OUT}")
+
+for key, a in ANCHORS.items():
+    add(key, a["name"], a["sales"], a["stock"], a["incoming"])
+
+for key in EXTRA:
+    s = round(float(rng.uniform(80, 600)), 2)
+    # bias toward some reds and some that need production
+    st = round(s * float(rng.uniform(0.2, 1.4)), 2)
+    inc = round(float(rng.choice([0, 0, 50, 100])), 2)
+    add(key, f"Variety {key[-1]}", s, st, inc)
+
+# Two stopped varieties (leftover stock, no sales) to show the 'stopped' status path.
+for key in ["VAR-Y", "VAR-Z"]:
+    params.append({"product_key": key, "variety_name": f"Stopped {key[-1]}", "active": False,
+                   "red_threshold": RED_LINE, "safety_floor": None, "safety_months": None})
+    stock.append({"product_key": key, "as_of_date": "2026-01-01", "qty_1000": 12.0, "source": "warehouse_sheet"})
+
+pd.DataFrame(params).to_csv(OUT / "product_params.csv", index=False)
+pd.DataFrame(sales).to_csv(OUT / "forecast_sales.csv", index=False)
+pd.DataFrame(stock).to_csv(OUT / "stock_on_hand.csv", index=False)
+pd.DataFrame(incoming).to_csv(OUT / "incoming_production.csv", index=False)
+
+print(f"Wrote 4 input CSVs to {OUT} (engine derives the plan from these)")

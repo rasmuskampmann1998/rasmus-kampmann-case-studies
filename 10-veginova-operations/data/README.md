@@ -1,19 +1,22 @@
-# Sample anonymised operations data
+# Sample illustrative operations data
 
-All customer IDs and seed codes are anonymised:
-- Customers → `Customer_NNNNN`
-- Seed varieties → `SEED_NNNN`
+All variety codes and quantities are illustrative stand-ins for confidential client data.
+The numbers are built so the planning engine reproduces the four anchor varieties the case
+study cites (VAR-A..D), including the instructive VAR-B (red, yet production need zero).
 
-Real volumes have been scaled by a random factor per seed to avoid revealing
-commercial info, while preserving the structural patterns used in the case study.
+Run `python ../python/generate_sample_data.py` to (re)create these deterministically.
 
-## Files
+## Files (the engine's inputs)
 
-| File | Rows (sample) | Description |
-|---|---|---|
-| `sales_orders.csv` | 1,200 | One row per order. 18 months of history. |
-| `inventory_log.csv` | 3,400 | Daily stock counts across 47 active seeds. |
-| `production_plan.csv` | 410 | Production runs across base / upside / downside scenarios. |
-| `forecast_24m.csv` | 2,256 | 24-month rolling forecast, 3 scenarios × 47 seeds × 16 periods. |
+| File | Description |
+|---|---|
+| `product_params.csv` | One row per variety: the safety red line, active flag, and (unseeded) production buffer. |
+| `forecast_sales.csv` | Expected sales per variety per channel; the channels sum to expected sales. |
+| `stock_on_hand.csv` | Physical stock per variety, as refreshed from the warehouse sheet. |
+| `incoming_production.csv` | Seed already on the way, net of waste. |
 
-The originals live in the client's SharePoint and are NOT included here.
+The plan itself (production need, ending stock, red/green status) is **not** in these files.
+The engine (`sql/schema.sql :: v_production_plan`) derives it from these inputs, which is the
+whole point: the logic lives in SQL, not in a spreadsheet of pre-computed answers.
+
+The real client inputs live in the warehouse and planning sheet and are NOT included here.

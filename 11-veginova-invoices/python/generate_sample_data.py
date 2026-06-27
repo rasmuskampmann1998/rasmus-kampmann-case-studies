@@ -1,8 +1,13 @@
 """
-Generate anonymised sample CSVs for the A European seed producer invoices case study.
+Generate illustrative invoice-line data for the finance case study.
 
-Deterministic (seed=99). Mirrors the structure of the operations sample data:
-customer IDs match Customer_NNNNN, seed codes match SEED_NNNN.
+Deterministic (seed=99). Produces one CSV at invoice-line grain (fct_revenue), the
+real fact grain. Amounts are synthetic stand-ins for confidential client data; the
+structure (contribution-margin spread, customer concentration, AR ageing, a reconcile
+anchor) is what the case study describes.
+
+The reconcile gate in analysis.py ties the 2024 invoice revenue to an illustrative
+ledger anchor within tolerance, the same mechanism that made the real numbers trusted.
 """
 from __future__ import annotations
 
@@ -15,72 +20,53 @@ rng = np.random.default_rng(99)
 OUT = Path(__file__).resolve().parent.parent / "data"
 OUT.mkdir(exist_ok=True)
 
-N_INVOICES = 800
-N_CUSTOMERS = 60
-CUSTOMERS = [f"Customer_{i:05d}" for i in range(1, N_CUSTOMERS + 1)]
+N_CUSTOMERS = 27
+N_PRODUCTS = 31
+CUSTOMERS = [f"CUST-{i:03d}" for i in range(1, N_CUSTOMERS + 1)]
+PRODUCTS = [f"VAR-{i:03d}" for i in range(1, N_PRODUCTS + 1)]
 
-# ── Invoices ───────────────────────────────────────────────────────────────
-issue_dates = pd.date_range("2024-05-01", "2025-05-01", freq="D")
-invoices = []
-for i in range(N_INVOICES):
-    customer = rng.choice(CUSTOMERS)
-    # 8 customers are habitual late payers
-    late_customers = CUSTOMERS[:8]
-    issue = rng.choice(issue_dates)
-    due = issue + pd.Timedelta(days=30)
-    amount = round(float(rng.gamma(2.0, 1500)) + 200, 2)
-    is_late = customer in late_customers and rng.random() < 0.55
-    invoices.append({
-        "invoice_no": f"INV-{20000 + i}",
-        "customer_id": customer,
-        "order_id": 100000 + int(rng.integers(0, 1200)),
-        "issue_date": issue,
-        "due_date": due,
-        "amount_eur": amount,
-        "status": "overdue" if is_late and issue < pd.Timestamp("2025-04-15") else "open",
-        "currency": "EUR",
-    })
-inv_df = pd.DataFrame(invoices)
-inv_df.to_csv(OUT / "invoices.csv", index=False)
+# A few customers concentrate most of the volume (the ~1/5 -> ~3/4 pattern).
+cust_weight = rng.pareto(1.1, N_CUSTOMERS) + 0.3
+cust_weight /= cust_weight.sum()
 
-# ── Payments ───────────────────────────────────────────────────────────────
-payments = []
-pay_id = 1
-for _, row in inv_df.iterrows():
-    if rng.random() < 0.85:  # 85% of invoices have at least partial payment
-        # Late payers take 60–90 days; others ~25–35
-        late_customers = CUSTOMERS[:8]
-        if row["customer_id"] in late_customers:
-            delay = int(rng.integers(60, 92))
-        else:
-            delay = int(rng.integers(20, 38))
-        pay_date = row["issue_date"] + pd.Timedelta(days=delay)
-        if pay_date > pd.Timestamp("2025-05-12"):
-            continue
-        payments.append({
-            "payment_id": pay_id,
-            "invoice_no": row["invoice_no"],
-            "payment_date": pay_date,
-            "amount_eur": round(row["amount_eur"] * rng.uniform(0.9, 1.0), 2),
-            "method": rng.choice(["bank", "sepa", "card"], p=[0.7, 0.25, 0.05]),
-        })
-        pay_id += 1
-pd.DataFrame(payments).to_csv(OUT / "payments.csv", index=False)
+# Per-product margin: most high (~90%), a handful thin (~60%).
+prod_margin = rng.normal(0.90, 0.04, N_PRODUCTS).clip(0.55, 0.96)
+thin = rng.choice(N_PRODUCTS, size=5, replace=False)
+prod_margin[thin] = rng.uniform(0.55, 0.65, size=5)
 
-# ── Production cost ────────────────────────────────────────────────────────
-seeds = [f"SEED_{i:04d}" for i in range(1, 48)]
-months = pd.date_range("2024-05-01", "2025-05-01", freq="MS")
-cost = []
-for seed in seeds:
-    base_cost = float(rng.uniform(0.8, 18.0))
-    yield_factor = float(rng.uniform(0.75, 0.98))
-    for m in months:
-        cost.append({
-            "seed_code": seed,
-            "period_yyyymm": int(m.strftime("%Y%m")),
-            "cost_per_kg_eur": round(base_cost * rng.uniform(0.95, 1.05), 4),
-            "yield_factor": round(yield_factor * rng.uniform(0.95, 1.05), 4),
-        })
-pd.DataFrame(cost).to_csv(OUT / "production_cost.csv", index=False)
+rows = []
+line_id = 0
+for year, n_inv in [(2024, 220), (2025, 120)]:
+    dates = pd.date_range(f"{year}-01-01", f"{year}-12-20", freq="D")
+    for _ in range(n_inv):
+        cust = rng.choice(CUSTOMERS, p=cust_weight)
+        d = pd.Timestamp(rng.choice(dates))
+        n_lines = int(rng.integers(1, 4))
+        for _ in range(n_lines):
+            line_id += 1
+            pidx = rng.integers(0, N_PRODUCTS)
+            revenue = round(float(rng.gamma(2.0, 4000)) + 500, 2)
+            cost = round(revenue * (1 - prod_margin[pidx]), 2)
+            # ~85% of lines paid; the rest outstanding (drives AR ageing)
+            paid = rng.random() < 0.85
+            rows.append({
+                "invoice_no": f"INV-{year}-{line_id:05d}",
+                "line_id": line_id,
+                "date_key": d.date().isoformat(),
+                "recognition_date": d.date().isoformat(),
+                "customer_key": cust,
+                "product_key": PRODUCTS[pidx],
+                "bucket_key": "Product",
+                "amount_dkk_expected": revenue,
+                "amount_dkk_confirmed": revenue if paid else 0.0,
+                "cost_dkk": cost,
+                "qty_1000": round(float(rng.uniform(0.5, 8.0)), 2),
+                "is_seed_revenue": True,
+                "line_type": None,
+                "year": year,
+            })
 
-print(f"Wrote 3 sample CSVs to {OUT}")
+df = pd.DataFrame(rows)
+df.to_csv(OUT / "fct_revenue.csv", index=False)
+print(f"Wrote {len(df)} invoice lines to {OUT/'fct_revenue.csv'} "
+      f"(2024 revenue {df.loc[df.year==2024,'amount_dkk_expected'].sum():,.0f})")

@@ -1,20 +1,19 @@
-# Sample anonymised invoice data
+# Sample illustrative invoice data
 
-All identifiers are anonymised:
-- Customers → `Customer_NNNNN` (matches the operations case study, so the two can be joined)
-- Seed codes → `SEED_NNNN`
-- Invoice numbers → `INV-NNNNN`
+All customer, invoice, and product identifiers and amounts are illustrative stand-ins for
+confidential client data. The structure (contribution-margin spread, customer concentration,
+AR ageing, a reconcile anchor) is what the case study describes.
 
-Amounts have been scaled by a random factor per row to avoid revealing actual
-revenue. Structural patterns (DSO trend, AR ageing distribution, top-customer
-concentration, margin range across seeds) are preserved.
+Run `python ../python/generate_sample_data.py` to (re)create this deterministically.
 
 ## Files
 
-| File | Rows (sample) | Description |
-|---|---|---|
-| `invoices.csv` | 800 | 12 months of invoices. Mixed paid/open/overdue. |
-| `payments.csv` | ~680 | Partial and full payments. ~85% of invoices have at least one payment. |
-| `production_cost.csv` | 564 | Monthly cost-per-kg and yield-factor for each of 47 seeds. |
+| File | Description |
+|---|---|
+| `fct_revenue.csv` | The fact table at **invoice-line grain**: one row per line on one invoice, with expected/confirmed amounts, cost, product, customer, and the seed-revenue flag. |
 
-Generate them locally with `python python/generate_sample_data.py`.
+The data is generated at invoice-line grain on purpose, because that is the real fact grain.
+The reconcile gate in `../python/analysis.py` ties the 2024 invoice revenue to an illustrative
+ledger anchor within tolerance, the same mechanism that made the real numbers trusted.
+
+The real client invoices live in the source workbook and are NOT included here.

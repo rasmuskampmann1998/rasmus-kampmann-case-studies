@@ -1,113 +1,68 @@
-# A European seed producer Operations. Power BI Dashboard Spec
+# Operations / Production Planning. Power BI Dashboard Spec
+
+Power BI renders the marts. All planning logic lives in SQL (`ops.v_production_plan`).
+The only computing DAX is the what-if slider, which writes nothing back.
 
 ## Pages
 
-### 1. Sales Pulse
-**Question:** How is the order book tracking vs. plan?
+### 1. Overview
+**Question:** What's the state of the plan right now?
 
-- KPI cards: YTD revenue, YTD volume, # active customers, top-customer concentration (top-5 share)
-- Line chart: monthly orders vs. same period last year
-- Stacked bar: orders by region × channel
-- Top-10 customers (anonymised) table with order count + total volume
-- Slicers: date range, region, seed family
+- KPI cards: total to produce (KS), # varieties red, # needing production
+  (the last two differ on purpose: a variety can be red yet need zero production
+  if it still covers its own sales)
+- Bar: production need by variety, coloured by red/green status
+- Slicers: sales year
 
-### 2. Inventory Cover
-**Question:** Which seeds are over/understocked vs. forecasted sell-through?
+### 2. Production
+**Question:** What do we make, and which varieties are at risk?
 
-- Big number: # seeds in RED band (< 2 months cover)
-- Donut: RED / AMBER / GREEN cover-band distribution
-- Detail table: seed_code, on_hand_kg, monthly_sales_kg, months_of_cover, band
-- Conditional formatting on `months_of_cover` (red < 2, amber 2–6, green > 6)
-- Slicers: seed family, location
+- Table: variety, expected sales, stock, incoming, ending stock, status, production need
+- Bar: ending stock by variety against the safety red line
+- Conditional formatting: red where ending stock < red_threshold
+- Slicers: status, sales year
 
-### 3. Production Schedule
-**Question:** Which production runs are at risk of missing their delivery window?
+### 3. Need vs Plan
+**Question:** How does the computed need compare to the planner's batch targets?
 
-- Big number: # mismatch flags (production finishes after delivery opens)
-- Gantt-style timeline: planned production windows vs. contracted delivery windows per seed
-- Red dot annotation on every flagged seed
-- Detail table: seed_code, production_finish, next_delivery_open, days_late
-- Slicers: status (planned / in_progress), scenario
+- Table: computed need beside the planner's per-variety target, with the lot-sizing gap
+- So the difference between "just enough" and the planner's batch size is visible, not buried
 
-### 4. 24-Month Forecast
-**Question:** What does the rolling 24-month volume forecast look like, and how has it shifted?
+### 4. What-if (scenario testing)
+**Question:** What happens to the plan if sales, capacity, or stock change?
 
-- Stacked area: base / upside / downside scenarios over 24 months
-- Line chart: this quarter's forecast vs. last quarter's (delta highlight)
-- Pareto chart: top-15 seeds by forecast volume
-- KPI: forecast MAPE (last 6 months). currently ~22%
-- Slicers: scenario, seed family
+- Sliders: sales uplift %, inventory shock %, production capacity %
+- The plan recomputes live as the sliders move; nothing is written back
+- This is the one place computing logic lives in DAX
 
-## DAX Measures
+## DAX
+
+The base measures are thin aggregations over the SQL view. The only computing measure
+is the what-if, a disconnected `GENERATESERIES` parameter feeding a single `SUMX` that
+re-applies the uplift to the engine's identity:
 
 ```dax
--- Sales
-Total Volume YTD =
-    CALCULATE (
-        SUM ( sales_orders[qty] ),
-        DATESYTD ( 'Date'[Date] )
-    )
+-- Parameter table (Power BI "New parameter" wizard):
+-- Sales uplift % = GENERATESERIES(-0.2, 0.5, 0.05)
 
-Total Volume LY YTD =
-    CALCULATE (
-        SUM ( sales_orders[qty] ),
-        SAMEPERIODLASTYEAR ( DATESYTD ( 'Date'[Date] ) )
-    )
+What-if production_need =
+SUMX(
+    'v_production_plan',
+    'v_production_plan'[expected_sales] * ( 1 + SELECTEDVALUE('Sales uplift %'[Sales uplift %], 0) )
+        - 'v_production_plan'[stock_on_hand] - 'v_production_plan'[incoming]
+)
 
-Top-5 Customer Concentration % =
-    VAR Top5Total =
-        SUMX (
-            TOPN ( 5, VALUES ( sales_orders[customer_id] ), [Total Volume YTD] ),
-            [Total Volume YTD]
-        )
-    RETURN DIVIDE ( Top5Total, [Total Volume YTD] )
-
--- Inventory cover
-Avg Monthly Sales 90d =
-    CALCULATE (
-        SUM ( sales_orders[qty] ) / 3,
-        DATESINPERIOD ( 'Date'[Date], MAX ( 'Date'[Date] ), -90, DAY )
-    )
-
-Stock On Hand =
-    CALCULATE (
-        SUM ( inventory_log[qty_on_hand] ),
-        FILTER (
-            ALL ( inventory_log ),
-            inventory_log[last_count_date] >= MAX ( inventory_log[last_count_date] ) - 14
-        )
-    )
-
-Months Of Cover =
-    DIVIDE ( [Stock On Hand], [Avg Monthly Sales 90d] )
-
-Cover Band =
-    SWITCH (
-        TRUE (),
-        [Months Of Cover] < 2,  "RED",
-        [Months Of Cover] < 6,  "AMBER",
-        "GREEN"
-    )
-
--- Production
-Mismatch Days =
-    VAR ProdFinish = MIN ( production_plan[finish_date] )
-    VAR DeliveryOpen = MIN ( sales_orders[delivery_window_from] )
-    RETURN IF ( ProdFinish > DeliveryOpen, DATEDIFF ( DeliveryOpen, ProdFinish, DAY ), BLANK () )
-
--- Forecast MAPE
-Forecast MAPE % =
-    AVERAGEX (
-        VALUES ( forecast_24m[period_yyyymm] ),
-        DIVIDE (
-            ABS ( [Total Volume YTD] - SUM ( forecast_24m[forecast_qty] ) ),
-            [Total Volume YTD]
-        )
-    )
+-- Headline cards (thin aggregations over the view):
+Total To Produce = SUM('v_production_plan'[production_need])
+Varieties Red    = CALCULATE(COUNTROWS('v_production_plan'), 'v_production_plan'[status] = "red")
+Needing Production = CALCULATE(COUNTROWS('v_production_plan'), 'v_production_plan'[production_need] > 0)
 ```
 
-## Refresh schedule
+Move the slider, the production need moves, and nothing is stored. A real commit goes
+back through the SQL layer (`commit_production_plan`), not through DAX.
 
-- **Sales + inventory:** daily 06:00 CET via GitHub Actions ETL → Supabase
-- **Production + forecast:** weekly Monday 06:00 CET
-- **Power BI dataset refresh:** twice daily (07:00 + 14:00 CET) via Power BI Service scheduled refresh
+## Refresh
+
+- Inputs (sales, stock, incoming) refreshed from the warehouse sheet via the Python loader
+- Power BI dataset refresh pulls the recomputed `v_production_plan`; the engine is correct
+  the moment the inputs land, because the logic is in the view, not the report

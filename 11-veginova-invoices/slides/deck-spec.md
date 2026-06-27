@@ -4,47 +4,47 @@ McKinsey one-rule format. One problem, one finding (action title), one recommend
 
 ## Slide 1: Cover
 
-**Title:** AR ageing, cash forecast, and true margin visibility.
-**Subtitle:** From manual Excel cross-references to a live Power BI finance dashboard.
+**Title:** One trusted view of profit per product, profit per customer, and the cash owed.
+**Subtitle:** Built from invoices, reconciled to the accounts within 1.25%.
 
 ## Slide 2: Executive summary (SCR)
 
-- **Situation:** Finance was cross-referencing invoices, payments, and production costs in Excel. Gross margin per seed and AR ageing were both blind spots.
-- **Complication:** As the order book grew, collection lag and margin compression on long-tail seeds became material risks the company couldn't see.
-- **Resolution:** A finance dashboard on the existing Supabase plus Power BI stack, refreshed twice daily, surfacing AR ageing, cash forecast, gross margin per seed, and customer profitability.
+- **Situation:** The numbers lived in two places that didn't agree. The tax accounts were structured for tax and hid the commercial picture; the invoices held what was actually sold.
+- **Complication:** Nobody could trust a single margin, customer, or receivables number, and you can't make a commercial decision on a number you don't trust.
+- **Resolution:** Make the invoices the source of truth, reconcile them to the ledger within 1.25%, and put contribution per variety, customer profitability, and AR ageing on one live view.
 
 ## Slide 3: Finding 1
 
-**Action title:** *67% of overdue invoice value comes from just 6 customers.*
-- Chart: top-10 overdue customers.
-- Therefore: Targeted collection cadence for the 6 (escalation script plus weekly outreach) moved overdue value by 18% in the first month.
+**Action title:** *2024 revenue ties to the official accounts within 1.25%, with the gap fully explained by currency timing.*
+- Chart: the reconcile gate (invoice revenue vs ledger anchor, explained vs unexplained).
+- Therefore: every downstream number can be trusted, because the foundation is reconciled, not asserted.
 
 ## Slide 4: Finding 2
 
-**Action title:** *DSO sits at 47 days vs a 30-day contract default, concentrated in 2 distributors.*
-- Chart: monthly DSO trend.
-- Therefore: Renegotiate payment terms with the 2 distributors at the next contract review, or apply early-payment discounts.
+**Action title:** *Contribution margin per variety spreads far wider than leadership assumed.*
+- Chart: contribution margin per variety, sorted ascending (illustrative).
+- Therefore: push the high-margin varieties; flag the thin ones for pricing or contract review.
 
 ## Slide 5: Finding 3
 
-**Action title:** *6 of 47 seed varieties run at less than 15% gross margin.*
-- Chart: gross margin per seed (sorted ascending).
-- Therefore: Flag for contract renegotiation. Two are commodity seeds with thin margins. Consider pricing-band rules instead of bespoke contracts.
+**Action title:** *A small share of customers generates most of the contribution.*
+- Chart: cumulative contribution by customer (illustrative).
+- Therefore: protect the customers driving the profit; the revenue ranking alone hides who actually matters.
 
 ## Slide 6: Finding 4
 
-**Action title:** *The top 3 customers by revenue are ranked #5, #8, and #12 by gross profit.*
-- Chart: revenue rank vs gross-profit rank scatter.
-- Therefore: It's a margin-mix issue, not a volume issue. Reframe sales conversations around variety mix, not total order size.
+**Action title:** *Receivables that had aged past 90 days were sitting unchased, invisible in the old reporting.*
+- Chart: AR ageing by bucket (illustrative).
+- Therefore: tighten collection on the past-90-day invoices first; that's where the cash is most at risk.
 
-## Slide 7: Cash forecast
+## Slide 7: What this measures, honestly
 
-**Action title:** *14-day cash forecast lands within ±9% of actual. Good enough for a weekly cash conversation.*
-- Chart: forecast vs actual over the first 90 days of use.
-- Therefore: The founder gets a Monday-morning forecast email. Finance adjusts collection prioritisation by Thursday.
+**Action title:** *The margin shown is contribution, not statutory profit.*
+- COGS is direct seed cost only; overhead lives in the bookkeeping system. Rebuilding it here would just duplicate the official accounts.
+- Therefore: read it as the number that tells you which products carry the business, not the bottom line.
 
 ## Slide 8: Next steps
 
-- Phase 2: customer-level payment-behaviour scoring (which invoice is most at risk of becoming overdue?).
-- Phase 3: auto-drafted collection emails using Claude, with manual approval before send.
-- Ongoing: monthly retainer covers dashboard evolution and ad-hoc finance analysis.
+- Use the contribution view to decide which varieties to grow and which to drop.
+- Run the collection-priority list (past-90-day outstanding) as a weekly cadence.
+- Extend the same reconciled stack to the operations and forecasting layer.

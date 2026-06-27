@@ -1,17 +1,20 @@
 """
-Operations analysis: sales, inventory, production, forecast.
+Operations analysis: the production-planning engine, reproduced and validated.
 
-Produces five charts that mirror the four Power BI dashboard pages:
-  1. Top-15 seed varieties. Pareto of forecast volume
-  2. Inventory cover band, months-of-stock distribution
-  3. Production vs. delivery mismatch. late-shipment flag
-  4. Raw-material intake by month, the "intake cliff"
-  5. Forecast vs. actual. last 6 months
+This mirrors what the SQL view (ops.v_production_plan) does, in pandas, so the public
+repo is runnable without a database. It then runs the same validation gate the real
+build uses: recompute the plan from inputs and assert the anchor varieties match their
+known-good targets from the planner's sheet. If any anchor moves, this fails.
 
-Inputs are the anonymised CSV samples in ../data/.
+It is a planning system with scenario testing, NOT a statistical forecast. There is no
+MAPE here and there is none in the real build; the engine reproduces the planner's
+judgment and keeps it live, it does not predict demand.
+
+Inputs: the illustrative CSVs in ../data/ (run generate_sample_data.py first).
 """
 from __future__ import annotations
 
+import sys
 from pathlib import Path
 
 import matplotlib.pyplot as plt
@@ -24,124 +27,108 @@ OUT.mkdir(exist_ok=True)
 LIME = "#9DEB6E"
 BLACK = "#0A0A0A"
 GREEN_MID = "#2D6A4F"
-AMBER = "#F59E0B"
 RED = "#DC2626"
 
-
-def load() -> dict[str, pd.DataFrame]:
-    return {
-        "sales": pd.read_csv(DATA / "sales_orders.csv", parse_dates=["order_date"]),
-        "inventory": pd.read_csv(DATA / "inventory_log.csv", parse_dates=["last_count_date"]),
-        "production": pd.read_csv(DATA / "production_plan.csv"),
-        "forecast": pd.read_csv(DATA / "forecast_24m.csv"),
-    }
-
-
-def chart_pareto(forecast: pd.DataFrame) -> None:
-    base = forecast.query("scenario == 'base'").groupby("seed_code")["forecast_qty"].sum()
-    base = base.sort_values(ascending=False).head(15)
-    cum = base.cumsum() / base.sum() * 100
-
-    fig, ax1 = plt.subplots(figsize=(10, 5))
-    ax1.bar(base.index, base.values, color=LIME, edgecolor=BLACK)
-    ax1.set_ylabel("Forecast volume (kg)")
-    ax1.tick_params(axis="x", rotation=45)
-    ax2 = ax1.twinx()
-    ax2.plot(base.index, cum.values, color=BLACK, marker="o", lw=2)
-    ax2.set_ylabel("Cumulative share of forecast (%)")
-    ax2.set_ylim(0, 105)
-    plt.title("Top-15 seed varieties. 12-month forecast (anonymised)")
-    plt.tight_layout()
-    plt.savefig(OUT / "01_pareto.png", dpi=140)
-    plt.close()
+# Known-good targets from the planner's spreadsheet (illustrative anchor varieties).
+ANCHORS = {
+    "VAR-A": {"ending_stock": 943.03,  "status": "green", "production_need": 0.0},
+    "VAR-B": {"ending_stock": 47.48,   "status": "red",   "production_need": 0.0},
+    "VAR-C": {"ending_stock": -134.15, "status": "red",   "production_need": 134.15},
+    "VAR-D": {"ending_stock": 2283.52, "status": "green", "production_need": 0.0},
+}
 
 
-def chart_cover_band(sales: pd.DataFrame, inventory: pd.DataFrame) -> None:
-    recent = sales[sales["order_date"] >= sales["order_date"].max() - pd.Timedelta(days=90)]
-    monthly = recent.groupby("seed_code")["qty"].sum() / 3.0
-    stock = inventory.groupby("seed_code")["qty_on_hand"].sum()
-    cover = (stock / monthly).dropna().sort_values()
-    band = pd.cut(cover, bins=[-1, 2, 6, 1000], labels=["RED < 2m", "AMBER 2–6m", "GREEN > 6m"])
-    counts = band.value_counts().reindex(["RED < 2m", "AMBER 2–6m", "GREEN > 6m"])
+def build_plan() -> pd.DataFrame:
+    """Reproduce ops.v_production_plan from the input CSVs (the engine, in pandas)."""
+    params = pd.read_csv(DATA / "product_params.csv")
+    sales = pd.read_csv(DATA / "forecast_sales.csv").groupby("product_key")["qty_1000"].sum()
+    stock = pd.read_csv(DATA / "stock_on_hand.csv").sort_values("as_of_date").groupby("product_key")["qty_1000"].last()
+    incoming = pd.read_csv(DATA / "incoming_production.csv").groupby("product_key")["qty_1000"].sum()
 
-    fig, ax = plt.subplots(figsize=(8, 4))
-    ax.bar(counts.index, counts.values, color=[RED, AMBER, GREEN_MID])
-    ax.set_ylabel("Seed varieties")
-    ax.set_title("Inventory cover: distribution across bands")
-    for i, v in enumerate(counts.values):
-        ax.text(i, v + 0.4, str(v), ha="center", fontweight="bold")
-    plt.tight_layout()
-    plt.savefig(OUT / "02_cover_band.png", dpi=140)
-    plt.close()
+    df = params.set_index("product_key")
+    df["expected_sales"] = sales.reindex(df.index).fillna(0.0)
+    df["stock_on_hand"] = stock.reindex(df.index).fillna(0.0)
+    df["incoming"] = incoming.reindex(df.index).fillna(0.0)
+
+    prod_safety = 0.0  # the production buffer is unseeded in this version
+    df["ending_stock"] = df["stock_on_hand"] + df["incoming"] - df["expected_sales"]
+    df["production_need"] = (prod_safety + df["expected_sales"]
+                             - df["stock_on_hand"] - df["incoming"]).clip(lower=0).round(2)
+    df["status"] = "green"
+    df.loc[df["ending_stock"] < df["red_threshold"], "status"] = "red"
+    df.loc[~df["active"], "status"] = "stopped"
+    return df.reset_index()
 
 
-def chart_mismatch(production: pd.DataFrame, sales: pd.DataFrame) -> None:
-    prod = production.query("status in ['planned','in_progress']").copy()
-    prod["finish"] = pd.to_datetime(prod["period_yyyymm"].astype(str), format="%Y%m")
-    next_delivery = (
-        sales.query("delivery_window_from >= @sales.order_date.max()")
-        .groupby("seed_code")["delivery_window_from"]
-        .min()
-    )
-    df = prod.groupby("seed_code")["finish"].min().to_frame().join(next_delivery)
-    df["days_late"] = (df["finish"] - df["delivery_window_from"]).dt.days
-    late = df.query("days_late > 0").sort_values("days_late", ascending=False).head(12)
+def validate(plan: pd.DataFrame) -> None:
+    """The gate: assert the engine reproduces the planner's anchors exactly. 0 mismatches."""
+    idx = plan.set_index("product_key")
+    failures = []
+    for key, want in ANCHORS.items():
+        got = idx.loc[key]
+        for field, target in want.items():
+            actual = got[field]
+            ok = (actual == target) if field == "status" else abs(float(actual) - target) < 0.01
+            if not ok:
+                failures.append(f"  {key}.{field}: got {actual!r}, want {target!r}")
+    if failures:
+        print("VALIDATION FAILED:")
+        print("\n".join(failures))
+        sys.exit(1)
+    print(f"Validation OK: {len(ANCHORS)}/{len(ANCHORS)} anchor varieties reproduce the planner's sheet, 0 mismatches.")
 
+
+def chart_production_plan(plan: pd.DataFrame) -> None:
+    """The main page: produce quantities per variety, coloured by red/green status."""
+    need = plan[plan["production_need"] > 0].sort_values("production_need", ascending=True)
+    colors = [RED if s == "red" else GREEN_MID for s in need["status"]]
     fig, ax = plt.subplots(figsize=(9, 5))
-    ax.barh(late.index, late["days_late"], color=RED, edgecolor=BLACK)
-    ax.invert_yaxis()
-    ax.set_xlabel("Days production finishes AFTER delivery window opens")
-    ax.set_title("Production vs. delivery-window mismatch (top offenders)")
+    ax.barh(need["product_key"], need["production_need"], color=colors, edgecolor=BLACK)
+    ax.set_xlabel("Production need (KS)")
+    ax.set_title("What to produce, by variety (red = below safety line)")
     plt.tight_layout()
-    plt.savefig(OUT / "03_mismatch.png", dpi=140)
+    plt.savefig(OUT / "01_production_plan.png", dpi=140)
     plt.close()
 
 
-def chart_intake_cliff(inventory: pd.DataFrame) -> None:
-    df = inventory.set_index("last_count_date").resample("M")["qty_on_hand"].sum()
-    fig, ax = plt.subplots(figsize=(10, 4))
-    ax.fill_between(df.index, df.values, color=LIME, alpha=0.6)
-    ax.plot(df.index, df.values, color=BLACK, lw=1.5)
-    ax.set_ylabel("Intake (kg)")
-    ax.set_title("Raw-material intake by month: the 'intake cliff'")
+def chart_status_counts(plan: pd.DataFrame) -> None:
+    """The KPI cards: total to produce, # red, # needing production (the last two differ)."""
+    total = round(plan["production_need"].sum())
+    red = int((plan["status"] == "red").sum())
+    needing = int((plan["production_need"] > 0).sum())
+    fig, ax = plt.subplots(figsize=(8, 4))
+    bars = ax.bar(["To produce (KS)", "Varieties red", "Needing production"],
+                  [total, red, needing], color=[LIME, RED, BLACK])
+    for b, v in zip(bars, [total, red, needing]):
+        ax.text(b.get_x() + b.get_width() / 2, v, str(v), ha="center", va="bottom", fontweight="bold")
+    ax.set_title("Headline counts (red > needing production, on purpose)")
     plt.tight_layout()
-    plt.savefig(OUT / "04_intake_cliff.png", dpi=140)
+    plt.savefig(OUT / "02_status_counts.png", dpi=140)
     plt.close()
 
 
-def chart_forecast_vs_actual(sales: pd.DataFrame, forecast: pd.DataFrame) -> None:
-    actuals = sales.copy()
-    actuals["period_yyyymm"] = actuals["order_date"].dt.strftime("%Y%m").astype(int)
-    a = actuals.groupby("period_yyyymm")["qty"].sum().sort_index().tail(6)
-    f = (
-        forecast.query("scenario == 'base'")
-        .groupby("period_yyyymm")["forecast_qty"]
-        .sum()
-        .reindex(a.index)
-    )
-
-    fig, ax = plt.subplots(figsize=(9, 4))
-    x = range(len(a))
-    ax.bar([i - 0.2 for i in x], a.values, width=0.4, color=BLACK, label="Actual")
-    ax.bar([i + 0.2 for i in x], f.values, width=0.4, color=LIME, label="Forecast")
-    ax.set_xticks(list(x))
-    ax.set_xticklabels([str(p) for p in a.index], rotation=45)
-    ax.set_ylabel("Volume (kg)")
-    ax.set_title("Forecast vs. actual. last 6 months (MAPE ≈ 22%)")
+def chart_ending_stock(plan: pd.DataFrame) -> None:
+    """Ending stock vs the red line, so the at-risk varieties are visible at a glance."""
+    active = plan[plan["status"] != "stopped"].sort_values("ending_stock")
+    colors = [RED if s == "red" else GREEN_MID for s in active["status"]]
+    fig, ax = plt.subplots(figsize=(10, 5))
+    ax.bar(active["product_key"], active["ending_stock"], color=colors, edgecolor=BLACK)
+    ax.axhline(active["red_threshold"].iloc[0], color=RED, ls="--", lw=1, label="Red line")
+    ax.set_ylabel("Ending stock (KS)")
+    ax.set_title("Ending stock by variety, against the safety red line")
     ax.legend()
     plt.tight_layout()
-    plt.savefig(OUT / "05_forecast_vs_actual.png", dpi=140)
+    plt.savefig(OUT / "03_ending_stock.png", dpi=140)
     plt.close()
 
 
 def main() -> None:
-    d = load()
-    chart_pareto(d["forecast"])
-    chart_cover_band(d["sales"], d["inventory"])
-    chart_mismatch(d["production"], d["sales"])
-    chart_intake_cliff(d["inventory"])
-    chart_forecast_vs_actual(d["sales"], d["forecast"])
-    print(f"Wrote 5 charts to {OUT}")
+    plan = build_plan()
+    validate(plan)
+    chart_production_plan(plan)
+    chart_status_counts(plan)
+    chart_ending_stock(plan)
+    print(f"Wrote 3 charts to {OUT}")
 
 
 if __name__ == "__main__":

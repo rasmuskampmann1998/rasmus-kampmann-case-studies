@@ -1,72 +1,73 @@
--- A European seed producer invoices + finance warehouse extension
--- Lives in the same Supabase instance as the operations schema.
+-- Invoice & finance star schema. Supabase / PostgreSQL flavour.
+-- All customer/invoice/product identifiers and amounts are illustrative stand-ins.
+--
+-- The principle: invoices are the source of truth, reconciled to the ledger. The
+-- logic lives in SQL; Power BI renders the mart and aggregates, nothing more.
+-- Grain of the fact table is the INVOICE LINE (one row per line on one invoice).
 
-create schema if not exists european seed producer_fin;
+create schema if not exists fin;
 
-create table european seed producer_fin.invoices (
-  invoice_no      text primary key,
-  customer_id     text not null,
-  order_id        bigint,
-  issue_date      date not null,
-  due_date        date not null,
-  amount_eur      numeric(12,2) not null,
-  status          text not null,           -- open / paid / overdue / disputed
-  currency        text default 'EUR',
-  created_at      timestamptz default now()
-);
-create index on european seed producer_fin.invoices (customer_id);
-create index on european seed producer_fin.invoices (status, due_date);
-
-create table european seed producer_fin.payments (
-  payment_id      bigserial primary key,
-  invoice_no      text not null references european seed producer_fin.invoices(invoice_no),
-  payment_date    date not null,
-  amount_eur      numeric(12,2) not null,
-  method          text,                    -- bank / card / sepa / other
-  loaded_at       timestamptz default now()
-);
-create index on european seed producer_fin.payments (invoice_no);
-create index on european seed producer_fin.payments (payment_date);
-
-create table european seed producer_fin.production_cost (
-  seed_code       text not null,
-  period_yyyymm   integer not null,
-  cost_per_kg_eur numeric(10,4) not null,
-  yield_factor    numeric(6,4) not null,   -- actual / theoretical
-  loaded_at       timestamptz default now(),
-  primary key (seed_code, period_yyyymm)
+-- ── Dimensions ────────────────────────────────────────────────────────────────
+create table if not exists fin.dim_date (
+  date_key date primary key,
+  year     int,
+  month    int,
+  quarter  int
 );
 
--- ── Views ──────────────────────────────────────────────────────────────────
-create or replace view european seed producer_fin.invoice_status as
-  with paid as (
-    select invoice_no, coalesce(sum(amount_eur), 0) as paid_eur
-    from european seed producer_fin.payments
-    group by invoice_no
-  )
-  select i.invoice_no,
-         i.customer_id,
-         i.issue_date,
-         i.due_date,
-         i.amount_eur,
-         coalesce(p.paid_eur, 0) as paid_eur,
-         i.amount_eur - coalesce(p.paid_eur, 0) as outstanding_eur,
-         case
-           when i.amount_eur - coalesce(p.paid_eur, 0) <= 0 then 'paid'
-           when i.due_date < current_date then 'overdue'
-           else 'open'
-         end as derived_status,
-         greatest(current_date - i.due_date, 0) as days_overdue
-  from european seed producer_fin.invoices i
-  left join paid p using (invoice_no);
+create table if not exists fin.dim_customer (
+  customer_key text primary key,        -- illustrative: CUST-001 ...
+  customer_name text,
+  country      text
+);
 
-create or replace view european seed producer_fin.ar_ageing_buckets as
-  select customer_id,
-         sum(case when days_overdue between 0 and 30   then outstanding_eur else 0 end) as bucket_0_30,
-         sum(case when days_overdue between 31 and 60  then outstanding_eur else 0 end) as bucket_31_60,
-         sum(case when days_overdue between 61 and 90  then outstanding_eur else 0 end) as bucket_61_90,
-         sum(case when days_overdue > 90               then outstanding_eur else 0 end) as bucket_90_plus,
-         sum(outstanding_eur) as total_outstanding
-  from european seed producer_fin.invoice_status
-  where derived_status = 'overdue'
-  group by customer_id;
+create table if not exists fin.dim_product (
+  product_key  text primary key,         -- illustrative variety code
+  variety_name text,
+  is_seed      boolean default true
+);
+
+-- Revenue classification (Product, R&D, Earn-out, Recharge, Other). COGS only hits Product.
+create table if not exists fin.dim_bucket (
+  bucket_key      text primary key,
+  is_seed_revenue boolean default false
+);
+
+-- Disconnected slicer: drives the revenue-basis toggle. No relationship to the fact.
+create table if not exists fin.ref_revenue_basis (
+  basis text primary key                 -- 'Expected' | 'Confirmed' | 'Recognized'
+);
+
+-- ── Fact (invoice-line grain) ──────────────────────────────────────────────────
+create table if not exists fin.fct_revenue (
+  invoice_no            text,
+  line_id               bigint,
+  date_key              date references fin.dim_date(date_key),
+  recognition_date      date references fin.dim_date(date_key),  -- inactive relationship in the model
+  customer_key          text references fin.dim_customer(customer_key),
+  product_key           text references fin.dim_product(product_key),
+  bucket_key            text references fin.dim_bucket(bucket_key),
+  amount_dkk_expected   numeric,   -- invoiced (the default basis)
+  amount_dkk_confirmed  numeric,   -- paid / cash basis (= expected when paid, else 0)
+  cost_dkk              numeric,   -- direct seed cost (Product bucket only)
+  qty_1000              numeric,
+  is_seed_revenue       boolean,
+  line_type             text,      -- NULL = real seed line; else License/Logistics/etc.
+  primary key (invoice_no, line_id)
+);
+create index if not exists ix_fct_revenue_date on fin.fct_revenue (date_key);
+create index if not exists ix_fct_revenue_cust on fin.fct_revenue (customer_key);
+
+-- ── Receivables view (AR ageing) ───────────────────────────────────────────────
+-- Outstanding = expected - confirmed, bucketed by age of the unpaid amount.
+create or replace view fin.v_receivables as
+select
+  customer_key,
+  sum(amount_dkk_expected - amount_dkk_confirmed) as outstanding_dkk,
+  sum(case when current_date - date_key between 0 and 30  then amount_dkk_expected - amount_dkk_confirmed else 0 end) as bucket_0_30,
+  sum(case when current_date - date_key between 31 and 60 then amount_dkk_expected - amount_dkk_confirmed else 0 end) as bucket_31_60,
+  sum(case when current_date - date_key between 61 and 90 then amount_dkk_expected - amount_dkk_confirmed else 0 end) as bucket_61_90,
+  sum(case when current_date - date_key > 90             then amount_dkk_expected - amount_dkk_confirmed else 0 end) as bucket_90_plus
+from fin.fct_revenue
+where amount_dkk_expected - amount_dkk_confirmed > 0
+group by customer_key;

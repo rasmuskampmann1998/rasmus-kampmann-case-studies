@@ -1,63 +1,69 @@
 # Invoice & Financial Dashboard
 
-> *Live financial reporting on invoices, payments, AR ageing, and gross margin per seed variety. Built in Power BI on top of a Supabase warehouse, refreshed twice daily.*
+> *One trusted view of profit per product, profit per customer, and the cash owed, built from invoices and reconciled to the accounts within 1.25%. A planning system's financial sibling: logic in SQL, Power BI renders only.*
 
-## The Problem
+**The reconciliation figures are real** (the 2024 revenue match, the 1.25% tolerance). **The commercial detail is illustrative** (per-product margins, customer profitability, receivables amounts): the shape and scale of the real findings, with the confidential client figures replaced.
 
-Same client as the [operations case study](../10-veginova-operations/), different question. Finance had two recurring frustrations:
+## The problem
 
-1. **Invoice status was opaque.** The accounting system showed what had been invoiced, but matching invoices to the order book, to actual payments received, and to the production cost of each line was a manual cross-reference in Excel.
-2. **Gross margin per seed variety was unknown.** Selling price per kg varied by customer contract. Production cost per kg varied by yield and batch. Without joining the two, the company couldn't tell which seeds were genuinely profitable and which were break-even at best.
+Like many small businesses, the company's numbers lived in two places that didn't agree. The official accounts were structured for tax, which hid the real commercial picture: which products actually made money, which customers were worth keeping, and how much cash was tied up in unpaid invoices. The accounts said one thing, the invoices said another, and nobody could trust a single number.
 
-A request that started as *"can we see overdue invoices in one place?"* turned into a full financial-control dashboard. AR ageing, cash collection forecast, margin by seed, and customer profitability, all on the same Supabase plus Power BI stack already running for operations.
+## What I built
 
-## Data Architecture
+One decision shaped everything: **the invoices are the truth.** They're the record of what was actually sold, to whom, at what price. The tax accounts became a cross-check, not the source. From there: pull every invoice to line-item grain, reconcile invoice revenue against the official accounts, compute contribution margin per variety and profit per customer, and track accounts receivable.
 
-Three new sources are added to the existing warehouse:
+The principle behind it: the logic lives in Postgres and SQL, and Power BI renders only. That's what lets the numbers reconcile and stay trustworthy, every figure on screen traces back to a reconciled row in the database.
 
-| Source | Refresh | Key fields |
-|---|---|---|
-| `invoices` | Daily | invoice_no, customer_id, order_id, issue_date, due_date, amount_eur, status |
-| `payments` | Daily | payment_id, invoice_no, payment_date, amount_eur, method |
-| `production_cost` | Weekly | seed_code, period_yyyymm, cost_per_kg, yield_factor |
+## The data model
 
-These join to the existing operations schema on `customer_id`, `order_id`, and `seed_code`.
+A star schema with `fct_revenue` at **invoice-line grain**. Four dimensions hang off it (`dim_date`, `dim_customer`, `dim_product`, `dim_bucket`), plus a disconnected `ref_revenue_basis` table that drives a revenue-basis toggle (Expected / Confirmed / Recognized). Keeping attributes on the dimensions means every measure can cut by product, customer, or bucket without rewriting a query.
 
-## Findings (anonymised)
+## The reconcile gate (what makes the numbers trustworthy)
 
-- **AR ageing is concentrated.** 67% of overdue invoices (by value) come from just 6 customers. Surfacing that in a sortable table changed how finance prioritises collection calls.
-- **Gross margin range is wider than the team expected.** Across 47 seed varieties, gross margin per kg ranges from 8% (a contract-priced commodity seed) to 61% (a niche variety with a single distributor). Six varieties run at less than 15% margin. I flagged them for contract renegotiation.
-- **Days-sales-outstanding (DSO)** sits at 47 days vs. a 30-day contract default. Two specific distributors account for most of the lag. Collection cadence was updated accordingly.
-- **Cash-collection forecast** projects 14 days ahead using historical payment behaviour per customer. The forecast carried a ±9% error band over the first 90 days of use. Good enough to drive a weekly cash conversation with the founder.
-- **Customer profitability ranking** revealed that the top 3 customers by *revenue* are #5, #8, and #12 by *gross profit*. A margin mix issue, not a volume issue. Sales conversations updated accordingly.
+Invoice revenue is tied to the official ledger figure, and only the *unexplained* remainder has to clear the tolerance:
 
-## Power BI Dashboard
+```python
+LEDGER_PRIMAER_2024    = 2312690.21   # official 2024 primær revenue (illustrative value shown)
+RECONCILING_ITEMS_2024 = 28805.41     # documented EU FX / timing
+UNEXPLAINED_TOL        = 0.005        # 0.5% gate on the unexplained remainder
 
-Four pages, designed for finance and leadership:
+residual    = LEDGER_PRIMAER_2024 - invoice_revenue_2024
+unexplained = residual - RECONCILING_ITEMS_2024
+ok = abs(unexplained) / LEDGER_PRIMAER_2024 <= UNEXPLAINED_TOL   # OK / FAIL
+```
 
-1. **AR ageing.** Overdue invoices by bucket (0-30 / 31-60 / 61-90 / 90+), top-10 customers by overdue value, drill-through to invoice detail.
-2. **Cash collection forecast.** 14-day rolling forecast, by customer, with confidence interval. Variance vs. last week.
-3. **Gross margin by seed.** Margin per kg, by variety, sortable. Red flag for any seed below 15%.
-4. **Customer profitability.** Revenue vs. gross profit rank, with the gap highlighted. Top-customer concentration on both axes.
+Separating explained divergence (documented FX and timing) from unexplained divergence is the difference between "roughly right" and "every krone of the gap is accounted for." On the real engagement, 2024 revenue tied to the official figure within 1.25%. If a future load breaks the tie, the gate fails before the number reaches a chart.
 
-DAX measures in [powerbi/dashboard-spec.md](powerbi/dashboard-spec.md).
+## The Power BI layer (thin by design)
 
-## Tech
+The measures aggregate columns the pipeline already computed. Revenue is a basis toggle, not a calculation:
 
-- **ETL:** Python (pandas), connects to the accounting system's CSV exports and the operations warehouse
-- **Warehouse:** Supabase (PostgreSQL). Same instance as operations.
-- **BI:** Power BI Desktop + Service, refresh twice daily
-- **Forecasting:** Customer-level payment-behaviour model (simple exponential smoothing per customer, blended into a 14-day cash forecast)
+```dax
+Revenue =
+SWITCH(
+    SELECTEDVALUE('ref_revenue_basis'[basis], "Expected"),
+    "Expected",   SUM(fct_revenue[amount_dkk_expected]),
+    "Confirmed",  SUM(fct_revenue[amount_dkk_confirmed]),
+    "Recognized", CALCULATE(SUM(fct_revenue[amount_dkk_expected]),
+                  USERELATIONSHIP(dim_date[date_key], fct_revenue[recognition_date]))
+)
+Dækningsbidrag = [Revenue] - [COGS]                              // contribution margin
+Outstanding    = [Revenue (Expected)] - [Revenue (Confirmed)]   // receivables
+```
+
+The complexity (cost attribution, the paid flag, the reconciliation) happened upstream, so a reviewer can verify every measure by reading one line.
+
+## Scope note (honest)
+
+The dashboard measures **contribution margin** (revenue minus the direct cost of the seed), not bottom-line profit. Overhead lives in the bookkeeping system; rebuilding it here would just duplicate the official accounts. The margin shown is contribution, the number that tells you which products carry the business.
 
 ## What's in this folder
 
-- `data/`: anonymised sample CSVs for invoices, payments, production cost
-- `sql/`: schema + the analytical queries powering each dashboard page
-- `python/`: ETL, payment-forecast model, and the chart-generating analysis script
-- `powerbi/`: dashboard spec + DAX measures
+- `sql/`: the star-schema definition and the analytical queries
+- `python/`: the reconcile gate, the ingestion loader, and a synthetic-data generator
+- `powerbi/`: dashboard spec and the basis-toggle DAX
 - `slides/`: `deck-spec.md` (executive summary)
-- `source-scripts/`: pointers to the original production ETL
 
 ## A note on the client
 
-All customer identifiers, invoice numbers, seed codes, and absolute amounts in the public files are anonymised. Structural findings, margin ranges, and the dashboard architecture are accurate.
+This is a real engagement. All customer identifiers, invoice numbers, and absolute commercial amounts in the public files are illustrative stand-ins. The reconciliation method and the result (tied to the official 2024 revenue within 1.25%) are accurate.
