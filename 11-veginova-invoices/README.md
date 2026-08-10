@@ -1,26 +1,47 @@
 # Invoice & Financial Dashboard
 
-> *One trusted view of profit per product, profit per customer, and the cash owed, built from invoices and reconciled to the accounts within 1.25%. A planning system's financial sibling: logic in SQL, Power BI renders only.*
+> *Profit per product, profit per customer, and the cash owed, built from invoices and tied to the official accounts within 1.25%. Logic in SQL, Power BI renders only.*
 
-**The reconciliation figures are real** (the 2024 revenue match, the 1.25% tolerance). **The commercial detail is illustrative** (per-product margins, customer profitability, receivables amounts): the shape and scale of the real findings, with the confidential client figures replaced.
+Built as a star schema in Postgres at invoice-line grain, with the reconciliation gate in Python and Power BI rendering thin measures over columns the pipeline already computed.
 
-## The problem
+**The reconciliation method and its result are real** (2024 invoice revenue ties to the audited ledger within 1.25%, with the unexplained remainder inside a 0.5% tolerance). **Every absolute figure shown here is illustrative**, including the ledger amount in the code below: per-product margins, customer profitability and receivables carry the shape and scale of the real findings with the confidential numbers replaced.
 
-Like many small businesses, the company's numbers lived in two places that didn't agree. The official accounts were structured for tax, which hid the real commercial picture: which products actually made money, which customers were worth keeping, and how much cash was tied up in unpaid invoices. The accounts said one thing, the invoices said another, and nobody could trust a single number.
+## Situation: the accounts and the invoices disagreed, and nobody could say by how much
 
-## What I built
+A Danish seed company kept its numbers in two places that did not reconcile. The official accounts were structured for tax reporting, which hid the commercial picture: which varieties made money, which customers were worth keeping, and how much cash sat in unpaid invoices.
 
-One decision shaped everything: **the invoices are the truth.** They're the record of what was actually sold, to whom, at what price. The tax accounts became a cross-check, not the source. From there: pull every invoice to line-item grain, reconcile invoice revenue against the official accounts, compute contribution margin per variety and profit per customer, and track accounts receivable.
+Every commercial conversation stalled on the same question of which source to believe. Pricing decisions and credit decisions were being made on numbers nobody would defend.
 
-The principle behind it: the logic lives in Postgres and SQL, and Power BI renders only. That's what lets the numbers reconcile and stay trustworthy, every figure on screen traces back to a reconciled row in the database.
+## Task: produce one revenue figure the owner would sign his name to
 
-## The data model
+The deliverable was a dashboard, but the actual requirement was narrower and harder. One revenue number, reconciled to the audited ledger, with the gap between the two sources explained line by line rather than waved at.
 
-A star schema with `fct_revenue` at **invoice-line grain**. Four dimensions hang off it (`dim_date`, `dim_customer`, `dim_product`, `dim_bucket`), plus a disconnected `ref_revenue_basis` table that drives a revenue-basis toggle (Expected / Confirmed / Recognized). Keeping attributes on the dimensions means every measure can cut by product, customer, or bucket without rewriting a query.
+Three constraints came with it. It had to run on the existing e-conomic export, with no new bookkeeping process. It had to survive a fresh data load without silently drifting.
 
-## The reconcile gate (what makes the numbers trustworthy)
+And it had to attribute cost per variety, which the accounts do not do at all.
 
-Invoice revenue is tied to the official ledger figure, and only the *unexplained* remainder has to clear the tolerance:
+## Action: made the invoices the source and the accounts the cross-check
+
+I made that call first, and it shaped everything after it. Invoices record what was actually sold, to whom, at what price. The tax accounts stopped being the source of truth and became the check on it.
+
+**Modelled at invoice-line grain.** `fct_revenue` sits at line grain with four dimensions (`dim_date`, `dim_customer`, `dim_product`, `dim_bucket`), plus a disconnected `ref_revenue_basis` table driving an Expected / Confirmed / Recognized toggle. Keeping attributes on the dimensions means any measure cuts by product, customer or bucket without a new query.
+
+**Put the logic in Postgres and left Power BI thin.** Cost attribution, the paid flag and the reconciliation all happen upstream, so every figure on screen traces to a reconciled row rather than to a measure that recomputes it. The three headline measures read in one line each:
+
+```dax
+Revenue =
+SWITCH(
+    SELECTEDVALUE('ref_revenue_basis'[basis], "Expected"),
+    "Expected",   SUM(fct_revenue[amount_dkk_expected]),
+    "Confirmed",  SUM(fct_revenue[amount_dkk_confirmed]),
+    "Recognized", CALCULATE(SUM(fct_revenue[amount_dkk_expected]),
+                  USERELATIONSHIP(dim_date[date_key], fct_revenue[recognition_date]))
+)
+Dækningsbidrag = [Revenue] - [COGS]                             // contribution margin
+Outstanding    = [Revenue (Expected)] - [Revenue (Confirmed)]   // receivables
+```
+
+**Built a gate that separates explained divergence from unexplained divergence.** Documented FX and timing differences are subtracted before the tolerance is applied, so only the genuinely unaccounted remainder has to clear it:
 
 ```python
 LEDGER_PRIMAER_2024    = 2312690.21   # official 2024 primær revenue (illustrative value shown)
@@ -32,38 +53,47 @@ unexplained = residual - RECONCILING_ITEMS_2024
 ok = abs(unexplained) / LEDGER_PRIMAER_2024 <= UNEXPLAINED_TOL   # OK / FAIL
 ```
 
-Separating explained divergence (documented FX and timing) from unexplained divergence is the difference between "roughly right" and "every krone of the gap is accounted for." On the real engagement, 2024 revenue tied to the official figure within 1.25%. If a future load breaks the tie, the gate fails before the number reaches a chart.
+That distinction is the difference between "roughly right" and "every krone of the gap is accounted for".
 
-## The Power BI layer (thin by design)
+## Result: 2024 revenue tied to the audited figure within 1.25%, and it stays tied
 
-The measures aggregate columns the pipeline already computed. Revenue is a basis toggle, not a calculation:
+The reconciliation holds against the official 2024 primær figure to within 1.25%, with the residual split into documented FX and timing items and an unexplained remainder inside a 0.5% tolerance.
 
-```dax
-Revenue =
-SWITCH(
-    SELECTEDVALUE('ref_revenue_basis'[basis], "Expected"),
-    "Expected",   SUM(fct_revenue[amount_dkk_expected]),
-    "Confirmed",  SUM(fct_revenue[amount_dkk_confirmed]),
-    "Recognized", CALCULATE(SUM(fct_revenue[amount_dkk_expected]),
-                  USERELATIONSHIP(dim_date[date_key], fct_revenue[recognition_date]))
-)
-Dækningsbidrag = [Revenue] - [COGS]                              // contribution margin
-Outstanding    = [Revenue (Expected)] - [Revenue (Confirmed)]   // receivables
-```
+The gate runs on every load. A future ingestion that breaks the tie fails the build before the number reaches a chart, which means the dashboard cannot quietly go wrong between reviews.
 
-The complexity (cost attribution, the paid flag, the reconciliation) happened upstream, so a reviewer can verify every measure by reading one line.
+Contribution margin per variety now exists, which it did not before in any system. Receivables are visible by customer and by age.
 
-## Scope note (honest)
+The owner can answer "which varieties actually pay for themselves" without opening the bookkeeping system, and defend the answer to an accountant.
 
-The dashboard measures **contribution margin** (revenue minus the direct cost of the seed), not bottom-line profit. Overhead lives in the bookkeeping system; rebuilding it here would just duplicate the official accounts. The margin shown is contribution, the number that tells you which products carry the business.
+## What it does not do
+
+The parts a buyer should know before believing the rest.
+
+**It measures contribution margin, not profit.** Revenue minus the direct cost of the seed. Overhead stays in the bookkeeping system, because rebuilding it here would duplicate the official accounts. Contribution tells you which varieties carry the business. It does not tell you whether the business made money.
+
+**Part of the forward view rests on a price assumption.** Forecast revenue is derived at historical prices and is not booked. It is labelled as derived everywhere it appears.
+
+**There is a gap in 2026.** Invoices for January to July 2026 are not loaded, so any period crossing that window is incomplete rather than zero. The report states this on the page, not in a footnote.
+
+**A chatbot was specified and I refused to build it.** The proposed design reached the database through a `service_role` key and an `exec_sql` wrapper capable of running `DROP`. A natural-language layer with that much authority is one prompt away from dropping a table, and no amount of prompt filtering fixes a permission model. It needs a read-only role and a query allow-list first. That work has not been done, so the feature does not exist.
+
+## The design was reverse-engineered, not invented
+
+The previous theme ran on `#2E7D32`, a Material Design green that appears nowhere in the company's brand. Someone had picked a green that looked agricultural. Clients notice that kind of detail and quietly stop trusting the rest.
+
+The current palette comes from evidence: Playwright reading computed styles off the company site, plus pixel-sampling the logo, giving `#782B90` and `#006140` with a source for each.
+
+Green stays semantic, meaning favourable or on-plan, and is deliberately kept off neutral chart series so it can never be misread as "good". Red is reserved for one meaning: a threshold or a breach.
+
+The brand font is Open Sans. Power BI cannot embed fonts, so the reports render in Segoe UI. A mockup in a font the report cannot render is a lie the client approves.
 
 ## What's in this folder
 
-- `sql/`: the star-schema definition and the analytical queries
-- `python/`: the reconcile gate, the ingestion loader, and a synthetic-data generator
-- `powerbi/`: dashboard spec and the basis-toggle DAX
-- `slides/`: `deck-spec.md` (executive summary)
+- `sql/` the star-schema definition and the analytical queries
+- `python/` the reconcile gate, the ingestion loader, and a synthetic-data generator
+- `powerbi/` dashboard spec and the basis-toggle DAX
+- `slides/` `deck-spec.md`
 
 ## A note on the client
 
-This is a real engagement. All customer identifiers, invoice numbers, and absolute commercial amounts in the public files are illustrative stand-ins. The reconciliation method and the result (tied to the official 2024 revenue within 1.25%) are accurate.
+A real engagement. All customer identifiers, invoice numbers, and absolute commercial amounts in the public files are illustrative stand-ins. The reconciliation method and its outcome are described exactly as built.
