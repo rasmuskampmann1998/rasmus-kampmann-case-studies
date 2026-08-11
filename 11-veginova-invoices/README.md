@@ -55,6 +55,10 @@ ok = abs(unexplained) / LEDGER_PRIMAER_2024 <= UNEXPLAINED_TOL   # OK / FAIL
 
 That distinction is the difference between "roughly right" and "every krone of the gap is accounted for".
 
+![Revenue and contribution by month, with revenue by bucket](powerbi/dashboard-pl-revenue.png)
+
+*Total and operating revenue, Dækningsbidrag and margin, with revenue by month beside revenue by bucket. The real Power BI report, rendered against the fictive demo dataset.*
+
 ## Result: 2024 revenue tied to the audited figure within 1.25%, and it stays tied
 
 The reconciliation holds against the official 2024 primær figure to within 1.25%, with the residual split into documented FX and timing items and an unexplained remainder inside a 0.5% tolerance.
@@ -64,6 +68,10 @@ The gate runs on every load. A future ingestion that breaks the tie fails the bu
 Contribution margin per variety now exists, which it did not before in any system. Receivables are visible by customer and by age.
 
 The owner can answer "which varieties actually pay for themselves" without opening the bookkeeping system, and defend the answer to an accountant.
+
+![Outstanding by customer and age](powerbi/dashboard-receivables.png)
+
+*Accounts receivable: what is owed, the collection rate, and days outstanding, by customer and by invoice. The real Power BI report, rendered against the fictive demo dataset.*
 
 ## What it does not do
 

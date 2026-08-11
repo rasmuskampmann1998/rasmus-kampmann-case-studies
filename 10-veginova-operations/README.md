@@ -53,6 +53,10 @@ want = {
 
 **Made scenarios read-only.** The what-if sliders are the one place logic lives in DAX, and they write nothing back. A disconnected parameter table feeds a measure that re-applies a sales uplift to the base SQL identity. A real commit goes back through the SQL layer and appends a snapshot.
 
+![Production volume by variety, with total, in production and flagged red](powerbi/dashboard-overview.png)
+
+*Total to produce, varieties needing production, and varieties at risk, with the quantity per variety. The planner's red and green sheet, made live. The real Power BI report, rendered against the fictive demo dataset.*
+
 ## Result: zero mismatches against the planner's sheet, enforced on every build
 
 The engine reproduces the planner's spreadsheet with zero mismatches on the anchor varieties, and that result is a build gate rather than a one-time check. The gate also verifies that forecast channels sum exactly to each variety's expected sales, and that committing a plan appends a new snapshot instead of overwriting history. If an anchor moves, the build fails before the dashboard ships.
@@ -62,6 +66,10 @@ Planning moved off the spreadsheet onto a report covering sales, forecast, stock
 The scenario layer answers a question the spreadsheet could not: what a large order or a capacity cut does to production need, before seed is committed for a year.
 
 What changed for the planner is smaller than it sounds and matters more. The plan is no longer something maintained. It is something read.
+
+![Production need beside the planner's batch target, by group and location](powerbi/dashboard-production.png)
+
+*Computed need beside the planner's own batch target, so the gap between "just enough" and the planner's lot size is visible rather than buried, with per-variety and per-location detail below. The real Power BI report, rendered against the fictive demo dataset.*
 
 ## What it does not do
 
